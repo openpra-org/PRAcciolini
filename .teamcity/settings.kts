@@ -1,6 +1,7 @@
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.perfmon
 import jetbrains.buildServer.configs.kotlin.buildSteps.dockerCommand
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.projectFeatures.spaceConnection
 import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
@@ -50,14 +51,43 @@ object Build : BuildType({
         root(DslContext.settingsRoot)
     }
 
+    params {
+        param("registry", "packages.space.openpra.org/p/openpra/containers/")
+        param("image", "pracciolini")
+        param("remote", "%registry%%image%")
+    }
+
     steps {
+         script {
+            name = "Generate Image Tags"
+            scriptContent = """
+                branchName=\${BRANCH_NAME//[^A-Za-z0-9-]/-}
+                branchName=\${branchName//-/-}
+                branchName=\${branchName,,}
+                branchSlug=\${branchName:0:48}
+                isMainBranch=\$([ "\$BRANCH_NAME" == "main" ] && echo "true" || echo "false")
+            """.trimIndent()
+        }
         dockerCommand {
             id = "DockerCommand"
             commandType = build {
                 source = file {
                     path = "Dockerfile"
                 }
-            }
+                namesAndTags = "%remote%:%branchSlug%"
+           }
+        }
+        script {
+            name = "Run Tests"
+            scriptContent = "docker run --rm %remote%:%branchSlug% pytest"
+        }
+        script {
+            name = "Run Coverage"
+            scriptContent = "docker run --rm %remote%:%branchSlug% pytest --cov"
+        }
+        script {
+            name = "Run Lint"
+            scriptContent = "docker run --rm %remote%:%branchSlug% pylint /app/pracciolini || exit 0"
         }
     }
 
@@ -68,6 +98,9 @@ object Build : BuildType({
 
     features {
         perfmon {
+        }
+    }
+
         }
     }
 })
