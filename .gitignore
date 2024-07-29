@@ -161,6 +161,14 @@ cython_debug/
 *.eta
 *.caf
 
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.xml
+!tests/fixtures/**/*.json
+!tests/fixtures/**/*.ftp
+!tests/fixtures/**/*.eta
+!tests/fixtures/**/*.caf
+!tests/fixtures/**/*.rr
+
 *.egg-info
 *.swp
 .idea

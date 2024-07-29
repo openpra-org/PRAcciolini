@@ -1,6 +1,7 @@
 """
 Setup script for the pracciolini package
 """
+
 from setuptools import setup
 
 with open('README.md', encoding='utf-8') as f:
@@ -17,8 +18,7 @@ setup(
     long_description_content_type='text/markdown',
     long_description=README,
     install_requires=[
-        argparse,
-        glob
+        'argparse'
     ],
     extras_require={
         'dev': [
