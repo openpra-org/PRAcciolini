@@ -100,7 +100,4 @@ object Build : BuildType({
         perfmon {
         }
     }
-
-        }
-    }
 })
