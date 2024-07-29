@@ -1,0 +1,5 @@
+# This file itself is owned by members who are assigned the Project Admin role in this project.
+CODEOWNERS "Project Admin"
+
+setupy.py "Project Admin"
+MANIFEST.in "Project Admin"

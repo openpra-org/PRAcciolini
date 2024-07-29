@@ -1,0 +1,6 @@
+include LICENSE
+include README.md
+recursive-include pracciolini *
+prune tests/
+exclude *.ipynb
+exclude notebooks/

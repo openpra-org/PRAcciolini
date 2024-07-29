@@ -1,3 +1,22 @@
+.gitignore
+.git
+build
+dist
+*.egg-info
+
+*.csv
+*.swp
+.idea
+__pycache__
+config.ini
+env
+venv
+*.whl
+*.tar.*
+scripts/
+.ipynb_checkpoints
+*.pyc
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -75,9 +94,6 @@ docs/_build/
 .pybuilder/
 target/
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
 # IPython
 profile_default/
 ipython_config.py
@@ -154,26 +170,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-*.csv
-*.xml
-*.json
-*.ftp
-*.eta
-*.caf
-
-*.egg-info
-*.swp
-.idea
-__pycache__
-config.ini
-env
-venv
-build
-*.whl
-*.tar.*
-scripts/
-dist
-*.pyc
 .DS_Store
 
 # PyCharm
