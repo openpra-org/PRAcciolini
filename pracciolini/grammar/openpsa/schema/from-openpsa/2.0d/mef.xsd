@@ -1,0 +1,1206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <!-- ############################################################### -->
+    <!-- I. Calculation Layer -->
+    <!-- ############################################################### -->
+    <!-- ============================================================= -->
+    <!-- I.1. Models -->
+    <!-- ============================================================= -->
+    <xs:element name="opsa-mef">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="define-event-tree"/>
+                    <xs:element ref="define-alignment"/>
+                    <xs:element ref="define-consequence-group"/>
+                    <xs:element ref="define-consequence"/>
+                    <xs:element ref="define-rule"/>
+                    <xs:element ref="define-initiating-event-group"/>
+                    <xs:element ref="define-initiating-event"/>
+                    <xs:element ref="define-fault-tree"/>
+                    <xs:element ref="define-substitution"/>
+                    <xs:element ref="define-CCF-group"/>
+                    <xs:element ref="include"/>
+                </xs:choice>
+                <xs:element minOccurs="0" ref="model-data"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="Identifier"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="model-data">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="define-house-event"/>
+                <xs:element ref="define-basic-event"/>
+                <xs:element ref="define-parameter"/>
+                <xs:element ref="include"/>
+            </xs:choice>
+        </xs:complexType>
+    </xs:element>
+    <xs:simpleType name="Identifier">
+        <xs:restriction base="xs:NCName">
+            <xs:pattern value="[^\-.]+(-[^\-.]+)*"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:attributeGroup name="name">
+        <xs:attribute name="name" use="required" type="Identifier"/>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="reference">
+        <xs:attribute name="name" use="required">
+            <xs:simpleType>
+                <xs:restriction base="xs:NCName">
+                    <xs:pattern value="([^\-.]+(-[^\-.]+)*)(\.\i[^\-.]*(-[^\-.]+)*)*"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:element name="label" type="xs:string"/>
+    <xs:element name="attributes">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="attribute"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="attribute">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="value" use="required" type="xs:string"/>
+            <xs:attribute name="type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="include">
+        <xs:complexType>
+            <xs:attribute name="file" use="required" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- ============================================================= -->
+    <!-- I.2. Consequences, Consequence Groups -->
+    <!-- ============================================================= -->
+    <xs:element name="define-consequence">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element ref="initiating-event"/>
+                <xs:element ref="sequence"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="initiating-event">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="sequence" substitutionGroup="end-state"/>
+    <xs:element name="define-consequence-group">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:choice>
+                    <xs:element ref="consequence"/>
+                    <xs:element ref="consequence-group"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="consequence">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="consequence-group">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- ============================================================= -->
+    <!-- I.3. Missions, Phases -->
+    <!-- ============================================================= -->
+    <xs:element name="define-alignment">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element maxOccurs="unbounded" ref="define-phase"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-phase">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="instruction"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="time-fraction" use="required" type="xs:float"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- ############################################################### -->
+    <!-- II. Event Tree Layer -->
+    <!-- ############################################################### -->
+    <!-- ============================================================= -->
+    <!-- II.1. Initiating events, Initiating event Groups -->
+    <!-- ============================================================= -->
+    <xs:element name="define-initiating-event">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:choice minOccurs="0">
+                    <xs:group ref="collected-item"/>
+                    <xs:element ref="consequence"/>
+                    <xs:element ref="consequence-group"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="event-tree" type="Identifier"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-initiating-event-group">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:group maxOccurs="unbounded" ref="initiating-event"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="event-tree" type="Identifier"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:complexType name="initiating-event">
+        <xs:attributeGroup ref="name"/>
+    </xs:complexType>
+    <xs:group name="initiating-event">
+        <xs:choice>
+            <xs:element ref="initiating-event"/>
+            <xs:element ref="initiating-event-group"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="initiating-event-group" type="initiating-event"/>
+    <xs:group name="collected-item">
+        <xs:choice>
+            <xs:element ref="basic-event"/>
+            <xs:element ref="gate"/>
+            <xs:group ref="parameter"/>
+        </xs:choice>
+    </xs:group>
+    <!-- ============================================================= -->
+    <!-- II.2. Event Trees -->
+    <!-- ============================================================= -->
+    <xs:element name="define-event-tree">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="define-functional-event"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="define-sequence"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="define-branch"/>
+                <xs:element ref="initial-state"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-functional-event">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-sequence">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element maxOccurs="unbounded" ref="instruction"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-branch">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:group ref="branch"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="initial-state">
+        <xs:complexType>
+            <xs:group ref="branch"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:group name="branch">
+        <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="instruction"/>
+            <xs:choice>
+                <xs:element ref="fork"/>
+                <xs:element ref="end-state"/>
+            </xs:choice>
+        </xs:sequence>
+    </xs:group>
+    <xs:element name="fork">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element maxOccurs="unbounded" ref="path"/>
+            </xs:sequence>
+            <xs:attribute name="functional-event" use="required" type="Identifier"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="path">
+        <xs:complexType>
+            <xs:group ref="branch"/>
+            <xs:attribute name="state" use="required" type="Identifier"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="end-state" abstract="true">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="branch" substitutionGroup="end-state"/>
+    <!-- ============================================================= -->
+    <!-- II.3. Instructions, Rules -->
+    <!-- ============================================================= -->
+    <xs:element name="instruction" abstract="true"/>
+    <xs:element name="set" abstract="true" substitutionGroup="instruction"/>
+    <xs:element name="set-gate" substitutionGroup="set">
+        <xs:complexType>
+            <xs:group ref="formula"/>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="direction" type="direction"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="set-house-event" substitutionGroup="set">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="constant"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="direction" type="direction"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="set-basic-event" substitutionGroup="set">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="direction" type="direction"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="set-parameter" substitutionGroup="set">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="direction" type="direction"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:simpleType name="direction">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="forward"/>
+            <xs:enumeration value="backward"/>
+            <xs:enumeration value="both"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:element name="if" substitutionGroup="instruction">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:element ref="instruction"/>
+                <xs:element minOccurs="0" ref="instruction"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="collect" abstract="true" substitutionGroup="instruction"/>
+    <xs:element name="collect-formula" substitutionGroup="collect">
+        <xs:complexType>
+            <xs:group ref="formula"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="collect-expression" substitutionGroup="collect">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="block" substitutionGroup="instruction">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="instruction"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="rule" substitutionGroup="instruction">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="event-tree" substitutionGroup="instruction">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-rule">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element maxOccurs="unbounded" ref="instruction"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- ############################################################### -->
+    <!-- III. Meta-Logical Layer -->
+    <!-- ############################################################### -->
+    <!-- ============================================================= -->
+    <!-- III.1. CCF-Groups -->
+    <!-- ============================================================= -->
+    <xs:element name="define-CCF-group">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element ref="members"/>
+                <xs:element ref="distribution"/>
+                <xs:group ref="factors"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="model" use="required" type="CCF-model"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="members">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element maxOccurs="unbounded" ref="basic-event"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:group name="factors">
+        <xs:choice>
+            <xs:element ref="factors"/>
+            <xs:element ref="factor"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="factors">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element maxOccurs="unbounded" ref="factor"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="factor">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+            <xs:attribute name="level" type="xs:nonNegativeInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="distribution">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:simpleType name="CCF-model">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="beta-factor"/>
+            <xs:enumeration value="MGL"/>
+            <xs:enumeration value="alpha-factor"/>
+            <xs:enumeration value="phi-factor"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <!-- ============================================================= -->
+    <!-- III.2. Substitutions -->
+    <!-- ============================================================= -->
+    <xs:element name="define-substitution">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element ref="hypothesis"/>
+                <xs:element minOccurs="0" ref="source"/>
+                <xs:element ref="target"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="Identifier"/>
+            <xs:attribute name="type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="hypothesis">
+        <xs:complexType>
+            <xs:group ref="formula"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="source">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element maxOccurs="unbounded" ref="basic-event"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="target">
+        <xs:complexType>
+            <xs:choice>
+                <xs:element maxOccurs="unbounded" ref="basic-event"/>
+                <xs:element ref="constant"/>
+            </xs:choice>
+        </xs:complexType>
+    </xs:element>
+    <!-- ############################################################### -->
+    <!-- IV. Fault Tree Layer -->
+    <!-- ############################################################### -->
+    <!-- ============================================================= -->
+    <!-- IV.1. Definitions of Fault Trees & Components -->
+    <!-- ============================================================= -->
+    <xs:element name="define-fault-tree">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="define-substitution"/>
+                    <xs:element ref="define-CCF-group"/>
+                    <xs:element ref="event-definition"/>
+                    <xs:element ref="define-component"/>
+                    <xs:element ref="define-parameter"/>
+                    <xs:element ref="include"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-component">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="define-substitution"/>
+                    <xs:element ref="define-CCF-group"/>
+                    <xs:element ref="event-definition"/>
+                    <xs:element ref="define-component"/>
+                    <xs:element ref="define-parameter"/>
+                    <xs:element ref="include"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="role">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="private"/>
+                        <xs:enumeration value="public"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:attributeGroup name="role">
+        <xs:attribute name="role" use="required">
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="private"/>
+                    <xs:enumeration value="public"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+    <xs:element name="event-definition" abstract="true"/>
+    <!-- ============================================================= -->
+    <!-- IV.2. Definitions of Gates, House Events & Basic Events -->
+    <!-- ============================================================= -->
+    <xs:element name="define-gate" substitutionGroup="event-definition">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:group ref="formula"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="role">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="private"/>
+                        <xs:enumeration value="public"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-house-event" substitutionGroup="event-definition">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:element minOccurs="0" ref="constant"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="role">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="private"/>
+                        <xs:enumeration value="public"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="define-basic-event" substitutionGroup="event-definition">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:group minOccurs="0" ref="expression"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="role">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="private"/>
+                        <xs:enumeration value="public"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <!-- ============================================================= -->
+    <!-- IV.3. Formulae -->
+    <!-- ============================================================= -->
+    <xs:group name="formula">
+        <xs:choice>
+            <xs:group ref="event"/>
+            <xs:element ref="constant"/>
+            <xs:element name="and">
+                <xs:complexType>
+                    <xs:group maxOccurs="unbounded" ref="formula"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="or">
+                <xs:complexType>
+                    <xs:group maxOccurs="unbounded" ref="formula"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="not">
+                <xs:complexType>
+                    <xs:group ref="formula"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element ref="xor"/>
+            <xs:element ref="iff"/>
+            <xs:element ref="nand"/>
+            <xs:element ref="nor"/>
+            <xs:element ref="atleast"/>
+            <xs:element ref="cardinality"/>
+            <xs:element ref="imply"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="xor">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="formula"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="iff">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="formula"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="nand">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="formula"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="nor">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="formula"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="atleast">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="formula"/>
+            <xs:attribute name="min" use="required" type="xs:nonNegativeInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="cardinality">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="formula"/>
+            <xs:attribute name="min" use="required" type="xs:nonNegativeInteger"/>
+            <xs:attribute name="max" use="required" type="xs:nonNegativeInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="imply">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="formula"/>
+                <xs:group ref="formula"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:group name="event">
+        <xs:choice>
+            <xs:element ref="event"/>
+            <xs:element ref="gate"/>
+            <xs:element ref="house-event"/>
+            <xs:element ref="basic-event"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="event">
+        <xs:complexType>
+            <xs:attributeGroup ref="reference"/>
+            <xs:attribute name="type" type="event-type"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:simpleType name="event-type">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="gate"/>
+            <xs:enumeration value="basic-event"/>
+            <xs:enumeration value="house-event"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:element name="gate">
+        <xs:complexType>
+            <xs:attributeGroup ref="reference"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="house-event">
+        <xs:complexType>
+            <xs:attributeGroup ref="reference"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="basic-event">
+        <xs:complexType>
+            <xs:attributeGroup ref="reference"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="constant">
+        <xs:complexType>
+            <xs:attribute name="value" use="required" type="Boolean-value"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:simpleType name="Boolean-value">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <!-- ############################################################### -->
+    <!-- V. Stochastic Layer -->
+    <!-- ############################################################### -->
+    <!-- ============================================================= -->
+    <!-- V.1. Definition of Parameters -->
+    <!-- ============================================================= -->
+    <xs:element name="define-parameter">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="label"/>
+                <xs:element minOccurs="0" ref="attributes"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="role">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="private"/>
+                        <xs:enumeration value="public"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="unit" type="units"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:simpleType name="units">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="bool"/>
+            <xs:enumeration value="int"/>
+            <xs:enumeration value="float"/>
+            <xs:enumeration value="hours"/>
+            <xs:enumeration value="hours-1"/>
+            <xs:enumeration value="years"/>
+            <xs:enumeration value="years-1"/>
+            <xs:enumeration value="fit"/>
+            <xs:enumeration value="demands"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <!-- ============================================================= -->
+    <!-- V.2. Expressions -->
+    <!-- ============================================================= -->
+    <!-- *********************************************************** -->
+    <!-- V.2.1. Entities -->
+    <!-- *********************************************************** -->
+    <xs:group name="expression">
+        <xs:choice>
+            <xs:group ref="constant"/>
+            <xs:group ref="parameter"/>
+            <xs:group ref="operation"/>
+            <xs:group ref="built-in"/>
+            <xs:element ref="random-deviate"/>
+            <xs:element ref="test-event"/>
+        </xs:choice>
+    </xs:group>
+    <xs:group name="constant">
+        <xs:choice>
+            <xs:element ref="bool"/>
+            <xs:element ref="int"/>
+            <xs:element ref="float"/>
+        </xs:choice>
+    </xs:group>
+    <xs:group name="parameter">
+        <xs:choice>
+            <xs:element ref="parameter"/>
+            <xs:element ref="system-mission-time"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="parameter">
+        <xs:complexType>
+            <xs:attributeGroup ref="reference"/>
+            <xs:attribute name="unit" type="units"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="system-mission-time">
+        <xs:complexType>
+            <xs:attribute name="unit" type="units"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:group name="operation">
+        <xs:choice>
+            <xs:element ref="numerical-operation"/>
+            <xs:group ref="Boolean-operation"/>
+            <xs:element ref="conditional-operation"/>
+        </xs:choice>
+    </xs:group>
+    <xs:group name="built-in">
+        <xs:choice>
+            <xs:element ref="exponential"/>
+            <xs:element ref="GLM"/>
+            <xs:element ref="Weibull"/>
+            <xs:group ref="periodic-test"/>
+            <xs:element ref="extern-function"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="random-deviate" abstract="true"/>
+    <xs:element name="test-event" abstract="true"/>
+    <!-- *********************************************************** -->
+    <!-- V.2.2. Constants, Parameters -->
+    <!-- *********************************************************** -->
+    <xs:element name="bool">
+        <xs:complexType>
+            <xs:attribute name="value" use="required" type="Boolean-value"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="int">
+        <xs:complexType>
+            <xs:attribute name="value" use="required" type="xs:integer"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="float">
+        <xs:complexType>
+            <xs:attribute name="value" use="required" type="xs:float"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- *********************************************************** -->
+    <!-- V.2.3. Numerical Expressions -->
+    <!-- *********************************************************** -->
+    <xs:element name="numerical-operation" abstract="true"/>
+    <xs:element name="neg" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="add" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="sub" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="mul" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="div" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="pi" substitutionGroup="numerical-operation">
+        <xs:complexType/>
+    </xs:element>
+    <xs:element name="abs" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="acos" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="asin" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="atan" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="cos" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="cosh" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="exp" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="log" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="log10" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="mod" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="pow" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="sin" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="sinh" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tan" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tanh" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="sqrt" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="ceil" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="floor" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="min" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="max" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="mean" substitutionGroup="numerical-operation">
+        <xs:complexType>
+            <xs:group maxOccurs="unbounded" ref="expression"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- *********************************************************** -->
+    <!-- V.2.4. Boolean Expressions -->
+    <!-- *********************************************************** -->
+    <xs:group name="Boolean-operation">
+        <xs:choice>
+            <xs:element name="not">
+                <xs:complexType>
+                    <xs:group ref="expression"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="and">
+                <xs:complexType>
+                    <xs:group maxOccurs="unbounded" ref="expression"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="or">
+                <xs:complexType>
+                    <xs:group maxOccurs="unbounded" ref="expression"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element ref="eq"/>
+            <xs:element ref="df"/>
+            <xs:element ref="lt"/>
+            <xs:element ref="gt"/>
+            <xs:element ref="leq"/>
+            <xs:element ref="geq"/>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="eq">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="df">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="lt">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="gt">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="leq">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="geq">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <!-- *********************************************************** -->
+    <!-- V.2.5. Conditional Expressions -->
+    <!-- *********************************************************** -->
+    <xs:element name="conditional-operation" abstract="true"/>
+    <xs:element name="ite" substitutionGroup="conditional-operation">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="switch" substitutionGroup="conditional-operation">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="case"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="case">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <!-- *********************************************************** -->
+    <!-- V.2.6. Built-ins -->
+    <!-- *********************************************************** -->
+    <xs:element name="exponential">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="GLM">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="Weibull">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:group name="periodic-test">
+        <xs:choice>
+            <xs:element name="periodic-test">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="periodic-test">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="periodic-test">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                        <xs:group ref="expression"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:choice>
+    </xs:group>
+    <xs:element name="extern-function">
+        <xs:complexType>
+            <xs:group minOccurs="0" maxOccurs="unbounded" ref="expression"/>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <!-- *********************************************************** -->
+    <!-- V.2.7. Random-Deviates -->
+    <!-- *********************************************************** -->
+    <xs:element name="uniform-deviate" substitutionGroup="random-deviate">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="normal-deviate" substitutionGroup="random-deviate">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="lognormal-deviate" substitutionGroup="random-deviate">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="gamma-deviate" substitutionGroup="random-deviate">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="beta-deviate" substitutionGroup="random-deviate">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="histogram" substitutionGroup="random-deviate">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element maxOccurs="unbounded" ref="bin"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="bin">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group ref="expression"/>
+                <xs:group ref="expression"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <!-- *********************************************************** -->
+    <!-- V.2.8. Test-Events -->
+    <!-- *********************************************************** -->
+    <xs:element name="test-initiating-event" substitutionGroup="test-event">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="test-functional-event" substitutionGroup="test-event">
+        <xs:complexType>
+            <xs:attributeGroup ref="name"/>
+            <xs:attribute name="state" use="required" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

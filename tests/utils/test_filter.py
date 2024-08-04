@@ -1,6 +1,5 @@
-import unittest
-from typing import Any
-from pracciolini.utils import FilterMixin
+from pracciolini.utils.filter import FilterMixin
+
 import unittest
 
 

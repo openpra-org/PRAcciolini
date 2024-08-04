@@ -13,13 +13,14 @@ class BasicEvent(object):
             prob: Probability of the basic event.
         """
         super(BasicEvent, self).__init__(name)
+        self.name = None
         self.prob = prob
 
     def to_xml(self):
         """Produces the Open-PSA MEF XML definition of the basic event."""
         return ("<define-basic-event name=\"" + self.name + "\">\n"
-                "<float value=\"" + str(self.prob) + "\"/>\n"
-                "</define-basic-event>\n")
+                                                            "<float value=\"" + str(self.prob) + "\"/>\n"
+                                                                                                 "</define-basic-event>\n")
 
     def to_aralia(self):
         """Produces the Aralia definition of the basic event."""

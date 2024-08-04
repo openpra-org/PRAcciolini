@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pracciolini"
+description = "Conversion utility for probabilistic risk assessment (PRA) models"
+version = "0.0.1"
+readme = "README.md"
+authors = [{name = "Arjun Earthperson", email = "arjun@openpra.org"}]
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed"
+]
+dependencies = [
+    "antlr4-python3-runtime",
+    "argparse",
+    "lxml",
+    "networkx"
+]
+
+[project.urls]
+Repository = "https://github.com/openpra-org/PRAcciolini"
+Documentation = "https://docs.openpra.org"
+Tracker = "https://youtrack.openpra.org"
+Homepage = "https://openpra.org"
+
+[project.optional-dependencies]
+default = []
+dev = [
+    "antlr4-tools",
+    "autopep8",
+    "build",
+    "pyarrow",
+    "pytest",
+    "pytest-cov",
+    "pylint",
+    "pylint[spelling]",
+    "ruff",
+    "twine"
+]
+static-analysis = [
+    "antlr4-tools",
+    "autopep8",
+    "ruff"
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "ruff"
+]
+
+[project.scripts]
+
+[tool.pytest.ini_options]
+addopts = "-ra -v --strict-markers"
+testpaths = [
+    "tests"
+]
+
+[tool.setuptools]
+packages = ["pracciolini"]
+

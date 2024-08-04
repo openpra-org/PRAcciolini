@@ -1,6 +1,7 @@
-from typing import Set, List
 import glob
 import os
+from lxml import etree
+from typing import Set, List
 
 
 class FileOps(object):
@@ -68,6 +69,26 @@ class FileOps(object):
             expanded_paths.extend(glob.glob(path_pattern, recursive=True))
         return expanded_paths
 
+    @staticmethod
+    def find_files_by_extension(root_dir: str, extension: str) -> List[str]:
+        """
+        Recursively finds all files with the given extension in the specified directory and its subdirectories.
+
+        Args:
+            root_dir (str): The root directory from which to start searching.
+            extension (str): The file extension to search for. Include the dot, e.g., '.xml'.
+
+        Returns:
+            List[str]: A list of full file paths matching the specified extension.
+        """
+        matching_files = []
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            for filename in filenames:
+                if filename.endswith(extension):
+                    full_path = os.path.join(dirpath, filename)
+                    matching_files.append(full_path)
+        return matching_files
+
     @classmethod
     def get_input_files(cls, args) -> Set[str]:
         """
@@ -83,3 +104,24 @@ class FileOps(object):
         for folder in args.input_folders:
             files.update(cls.get_files_by_type(folder, args.file_type))
         return files
+
+    @classmethod
+    def parse_xml_file(cls, file_path: str) -> etree.ElementTree:
+        """
+        Parses an XML or Relax NG schema file.
+
+        Args:
+            file_path (str): Path to the XML or Relax NG schema file.
+
+        Returns:
+            etree._ElementTree: Parsed XML document tree.
+        """
+        try:
+            with open(FileOps.verify_file_path(file_path), 'rb') as file:
+                return etree.parse(file)
+        except etree.XMLSyntaxError as e:
+            print(f"Error parsing {file_path}: {e}")
+            raise
+        except Exception as e:
+            print(f"An error occurred while reading the file {file_path}: {e}")
+            raise

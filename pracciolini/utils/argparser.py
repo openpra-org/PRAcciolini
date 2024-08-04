@@ -1,7 +1,10 @@
-import argparse
-from argparse import Namespace
-from typing import List
 import glob
+from argparse import Namespace
+import sys
+from typing import Set
+
+import argparse
+import os
 
 
 def parse_and_glob_paths(paths):
@@ -26,12 +29,6 @@ def parse_args(argv: None) -> Namespace:
     args = parser.parse_args()
 
     return args
-
-import sys
-from typing import Set, Tuple
-
-import argparse
-import os
 
 
 class ArgParser(argparse.ArgumentParser):
@@ -68,26 +65,12 @@ class ArgParser(argparse.ArgumentParser):
         return ArgParser.is_type_of_file(file, '.xml')
 
     @staticmethod
-    def is_dumps(file):
-        if pickle.dumps(file):
-            return file
-        else:
-            raise FileNotFoundError(file)
-
-    @staticmethod
     def get_all_files_of_type_in_dir(rule, path) -> Set:
         files = set()
         for file in os.listdir(path):
             full_path = os.path.join(path, file)
             if os.path.isfile(full_path) and rule(full_path):
                 files.add(full_path)
-        return files
-
-    @staticmethod
-    def get_input_files(args) -> Set:
-        files = set()
-        for folder in args.input_folders:
-            files.update(ArgParser.get_all_files_of_type_in_dir(ArgParser.is_dumps, folder))
         return files
 
     @staticmethod
@@ -100,7 +83,8 @@ class ArgParser(argparse.ArgumentParser):
     def add_arguments(self):
         # For generating fault tree and flow xml files
         self.add_argument('-g', '--generate', action='store_true',
-                          required=not(ArgParser.alteast_one(args=['--post-process', '-p', '-q', '--quantify', '-m', '--pickle'])),
+                          required=not (ArgParser.alteast_one(
+                              args=['--post-process', '-p', '-q', '--quantify', '-m', '--pickle'])),
                           help='Generate fault trees')
         self.add_argument('-i', '--input-folders', type=ArgParser.dir_path, nargs="+",
                           required=ArgParser.alteast_one(args=['--generate', '-g', '-m', '--pickle']),
@@ -115,13 +99,15 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('-id', '--ignore-dependencies', action='store_true', required=False,
                           help='Allow duplicate basic events')
         self.add_argument('-m', '--pickle', nargs=1,
-                          required=not(ArgParser.alteast_one(args=['--generate', '-g', '-q', '--quantify', '-p', '--post-process'])),
+                          required=not (ArgParser.alteast_one(
+                              args=['--generate', '-g', '-q', '--quantify', '-p', '--post-process'])),
                           help='File path for pickled dataframe')
         self.add_argument('-t', '--type', type=str, default='FDA', required=False,
                           help='Type of supply chain to be generated')
 
         self.add_argument('-q', '--quantify', action='store_true',
-                          required=not (ArgParser.alteast_one(args=['--generate', '-g', '-m', '--pickle', '-p', '--post-process'])),
+                          required=not (ArgParser.alteast_one(
+                              args=['--generate', '-g', '-m', '--pickle', '-p', '--post-process'])),
                           help='Quantify provided fault trees using SCRAM')
         self.add_argument('--num-trials', type=int, default=10000, required=False,
                           help='Number of Monte-Carlo trials to use when sampling a distribution')
@@ -134,7 +120,8 @@ class ArgParser(argparse.ArgumentParser):
 
         # For post-processing quantified fault tree to generate output excel sheet
         self.add_argument('-p', '--post-process', action='store_true',
-                          required=not(ArgParser.alteast_one(args=['--generate', '-g', '-q', '--quantify', '-m', '--pickle'])))
+                          required=not (
+                              ArgParser.alteast_one(args=['--generate', '-g', '-q', '--quantify', '-m', '--pickle'])))
         self.add_argument('-r', '--report-xml-file', type=ArgParser.is_xml_file, nargs=1,
                           required=ArgParser.alteast_one(args=['-p', '--post-process', '--quantify', '-q']),
                           help='Path for report xml file')

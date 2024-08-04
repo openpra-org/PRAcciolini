@@ -1,5 +1,18 @@
 # This file itself is owned by members who are assigned the Project Admin role in this project.
 CODEOWNERS "Project Admin"
 
-setupy.py "Project Admin"
+# By default, starting from the root dir, all files are owned by the project members
+* "Project Member"
+
+setup.py "Project Admin"
 MANIFEST.in "Project Admin"
+LICENSE "Project Admin"
+Dockerfile "Project Admin"
+.idea "Project Admin"
+
+.dockerignore "Project Admin"
+.gitignore "Project Admin"
+.space.kts "Project Admin"
+.pylintrc "Project Admin"
+.teamcity "Project Admin"
+.editorconfig "Project Admin"
