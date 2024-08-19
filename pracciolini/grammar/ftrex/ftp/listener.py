@@ -1,147 +1,174 @@
-# Generated from ftrex_ftp.g4 by ANTLR 4.13.1
-from antlr4 import ParseTreeListener
+# Generated from ftrex_ftp.g4 by ANTLR 4.13.2
+from antlr4 import *
+if "." in __name__:
+    from .parser import ftrex_ftpParser
+else:
+    from parser import ftrex_ftpParser
 
-from pracciolini.grammar.ftrex.ftp.parser import FtrexFtpParser
+# This class defines a complete listener for a parse tree produced by ftrex_ftpParser.
+class ftrex_ftpListener(ParseTreeListener):
 
-
-# This class defines a complete listener for a parse tree produced by FtrexFtpParser.
-class FtrexFtpListener(ParseTreeListener):
-
-    # Enter a parse tree produced by FtrexFtpParser#file_.
-    def enterFile_(self, ctx: FtrexFtpParser.File_Context):
+    # Enter a parse tree produced by ftrex_ftpParser#file_.
+    def enterFile_(self, ctx:ftrex_ftpParser.File_Context):
         pass
 
-    # Exit a parse tree produced by FtrexFtpParser#file_.
-    def exitFile_(self, ctx: FtrexFtpParser.File_Context):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#section.
-    def enterSection(self, ctx: FtrexFtpParser.SectionContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#section.
-    def exitSection(self, ctx: FtrexFtpParser.SectionContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#treeSection.
-    def enterTreeSection(self, ctx: FtrexFtpParser.TreeSectionContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#treeSection.
-    def exitTreeSection(self, ctx: FtrexFtpParser.TreeSectionContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#gate.
-    def enterGate(self, ctx: FtrexFtpParser.GateContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#gate.
-    def exitGate(self, ctx: FtrexFtpParser.GateContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#processSection.
-    def enterProcessSection(self, ctx: FtrexFtpParser.ProcessSectionContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#processSection.
-    def exitProcessSection(self, ctx: FtrexFtpParser.ProcessSectionContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#importSection.
-    def enterImportSection(self, ctx: FtrexFtpParser.ImportSectionContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#importSection.
-    def exitImportSection(self, ctx: FtrexFtpParser.ImportSectionContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#limitSection.
-    def enterLimitSection(self, ctx: FtrexFtpParser.LimitSectionContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#limitSection.
-    def exitLimitSection(self, ctx: FtrexFtpParser.LimitSectionContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#processCommands.
-    def enterProcessCommands(self, ctx: FtrexFtpParser.ProcessCommandsContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#processCommands.
-    def exitProcessCommands(self, ctx: FtrexFtpParser.ProcessCommandsContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#importCommands.
-    def enterImportCommands(self, ctx: FtrexFtpParser.ImportCommandsContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#importCommands.
-    def exitImportCommands(self, ctx: FtrexFtpParser.ImportCommandsContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#gateId.
-    def enterGateId(self, ctx: FtrexFtpParser.GateIdContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#gateId.
-    def exitGateId(self, ctx: FtrexFtpParser.GateIdContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#gateType.
-    def enterGateType(self, ctx: FtrexFtpParser.GateTypeContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#gateType.
-    def exitGateType(self, ctx: FtrexFtpParser.GateTypeContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#childRef.
-    def enterChildRef(self, ctx: FtrexFtpParser.ChildRefContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#childRef.
-    def exitChildRef(self, ctx: FtrexFtpParser.ChildRefContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#metaArgs.
-    def enterMetaArgs(self, ctx: FtrexFtpParser.MetaArgsContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#metaArgs.
-    def exitMetaArgs(self, ctx: FtrexFtpParser.MetaArgsContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#metaEncoding.
-    def enterMetaEncoding(self, ctx: FtrexFtpParser.MetaEncodingContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#metaEncoding.
-    def exitMetaEncoding(self, ctx: FtrexFtpParser.MetaEncodingContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#metaCmd.
-    def enterMetaCmd(self, ctx: FtrexFtpParser.MetaCmdContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#metaCmd.
-    def exitMetaCmd(self, ctx: FtrexFtpParser.MetaCmdContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#metaDbName.
-    def enterMetaDbName(self, ctx: FtrexFtpParser.MetaDbNameContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#metaDbName.
-    def exitMetaDbName(self, ctx: FtrexFtpParser.MetaDbNameContext):
-        pass
-
-    # Enter a parse tree produced by FtrexFtpParser#metaFTitle.
-    def enterMetaFTitle(self, ctx: FtrexFtpParser.MetaFTitleContext):
-        pass
-
-    # Exit a parse tree produced by FtrexFtpParser#metaFTitle.
-    def exitMetaFTitle(self, ctx: FtrexFtpParser.MetaFTitleContext):
+    # Exit a parse tree produced by ftrex_ftpParser#file_.
+    def exitFile_(self, ctx:ftrex_ftpParser.File_Context):
         pass
 
 
-del FtrexFtpParser
+    # Enter a parse tree produced by ftrex_ftpParser#section.
+    def enterSection(self, ctx:ftrex_ftpParser.SectionContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#section.
+    def exitSection(self, ctx:ftrex_ftpParser.SectionContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#treeSection.
+    def enterTreeSection(self, ctx:ftrex_ftpParser.TreeSectionContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#treeSection.
+    def exitTreeSection(self, ctx:ftrex_ftpParser.TreeSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#gate.
+    def enterGate(self, ctx:ftrex_ftpParser.GateContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#gate.
+    def exitGate(self, ctx:ftrex_ftpParser.GateContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#processSection.
+    def enterProcessSection(self, ctx:ftrex_ftpParser.ProcessSectionContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#processSection.
+    def exitProcessSection(self, ctx:ftrex_ftpParser.ProcessSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#importSection.
+    def enterImportSection(self, ctx:ftrex_ftpParser.ImportSectionContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#importSection.
+    def exitImportSection(self, ctx:ftrex_ftpParser.ImportSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#limitSection.
+    def enterLimitSection(self, ctx:ftrex_ftpParser.LimitSectionContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#limitSection.
+    def exitLimitSection(self, ctx:ftrex_ftpParser.LimitSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#processCommands.
+    def enterProcessCommands(self, ctx:ftrex_ftpParser.ProcessCommandsContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#processCommands.
+    def exitProcessCommands(self, ctx:ftrex_ftpParser.ProcessCommandsContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#importCommands.
+    def enterImportCommands(self, ctx:ftrex_ftpParser.ImportCommandsContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#importCommands.
+    def exitImportCommands(self, ctx:ftrex_ftpParser.ImportCommandsContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#gateId.
+    def enterGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#gateId.
+    def exitGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#gateType.
+    def enterGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#gateType.
+    def exitGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#childRef.
+    def enterChildRef(self, ctx:ftrex_ftpParser.ChildRefContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#childRef.
+    def exitChildRef(self, ctx:ftrex_ftpParser.ChildRefContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#childRefList.
+    def enterChildRefList(self, ctx:ftrex_ftpParser.ChildRefListContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#childRefList.
+    def exitChildRefList(self, ctx:ftrex_ftpParser.ChildRefListContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#metaArgs.
+    def enterMetaArgs(self, ctx:ftrex_ftpParser.MetaArgsContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#metaArgs.
+    def exitMetaArgs(self, ctx:ftrex_ftpParser.MetaArgsContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#metaEncoding.
+    def enterMetaEncoding(self, ctx:ftrex_ftpParser.MetaEncodingContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#metaEncoding.
+    def exitMetaEncoding(self, ctx:ftrex_ftpParser.MetaEncodingContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#metaCmd.
+    def enterMetaCmd(self, ctx:ftrex_ftpParser.MetaCmdContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#metaCmd.
+    def exitMetaCmd(self, ctx:ftrex_ftpParser.MetaCmdContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#metaDbName.
+    def enterMetaDbName(self, ctx:ftrex_ftpParser.MetaDbNameContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#metaDbName.
+    def exitMetaDbName(self, ctx:ftrex_ftpParser.MetaDbNameContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#metaFTitle.
+    def enterMetaFTitle(self, ctx:ftrex_ftpParser.MetaFTitleContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#metaFTitle.
+    def exitMetaFTitle(self, ctx:ftrex_ftpParser.MetaFTitleContext):
+        pass
+
+
+
+del ftrex_ftpParser
