@@ -51,6 +51,16 @@ def validate_openpsa_input_xml_file(xml_path: str) -> bool:
     schema_path = os.path.join(current_dir, 'schema/input.rng')
     return validate_rng_xml_file(xml_path=xml_path, schema_path=schema_path)
 
+def validate_openpsa_input_xml(xml_doc: etree.ElementTree) -> bool:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        schema_path = os.path.join(current_dir, 'schema/input.rng')
+        rng_schema = FileOps.parse_xml_file(schema_path)
+    except etree.XMLSyntaxError as e:
+        print(f"An error occurred during validation: {e}")
+        return False
+    return validate_rng_xml(xml_doc=xml_doc, schema_doc=rng_schema)
+
 
 def validate_openpsa_report_xml_file(xml_path: str) -> bool:
     # Get the directory of the current script

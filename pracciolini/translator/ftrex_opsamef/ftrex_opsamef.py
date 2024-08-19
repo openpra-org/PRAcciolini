@@ -3,6 +3,7 @@ from lxml import etree
 
 from pracciolini.core.decorators import translation
 from pracciolini.grammar.ftrex.validate import read_ftrex_ftp
+from pracciolini.grammar.openpsa.validate import validate_openpsa_input_xml
 from pracciolini.translator.ftrex_opsamef.opsamef_xml_visitor import OpsaMefXmlVisitor
 
 
@@ -13,6 +14,7 @@ def ftrex_ftp_to_opsamef_xml(file_path: str) -> ElementTree:
         parse_tree = read_ftrex_ftp(file_path)
         visitor = OpsaMefXmlVisitor()
         xml_doc = visitor.build_xml(parse_tree)
+        validate_openpsa_input_xml(xml_doc)
     except Exception as e:
         print(f"An error occurred during translation: {e}")
     print(etree.tostring(xml_doc, pretty_print=True, xml_declaration=True, encoding='UTF-8').decode())
