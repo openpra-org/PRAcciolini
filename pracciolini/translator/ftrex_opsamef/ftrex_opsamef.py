@@ -1,5 +1,6 @@
 from lxml.etree import ElementTree
 from lxml import etree
+import pandas as pd
 
 from pracciolini.core.decorators import translation
 from pracciolini.grammar.ftrex.validate import read_ftrex_ftp
@@ -10,6 +11,28 @@ from pracciolini.translator.ftrex_opsamef.opsamef_xml_visitor import OpsaMefXmlV
 @translation('filepath_ftrex_ftp', 'ft_opsamef_xml')
 def ftrex_ftp_to_opsamef_xml(file_path: str) -> ElementTree:
     xml_doc: ElementTree = ElementTree()
+    try:
+        parse_tree = read_ftrex_ftp(file_path)
+        visitor = OpsaMefXmlVisitor()
+        xml_doc = visitor.build_xml(parse_tree)
+        validate_openpsa_input_xml(xml_doc)
+    except Exception as e:
+        print(f"An error occurred during translation: {e}")
+    print(etree.tostring(xml_doc, pretty_print=True, xml_declaration=True, encoding='UTF-8').decode())
+    return xml_doc
+
+@translation('ft_opsamef_xml_with_csv', 'ft_opsamef_xml')
+def ftrex_csv_to_opsamef_xml(csv_file_path: str, xml_doc: ElementTree) -> ElementTree:
+
+    def process_csv(csv_file_path):
+        # Read the CSV file using pandas
+        df = pd.read_csv(csv_file_path, usecols=['NAME', 'DESC'])
+
+        # Iterate over each row in the DataFrame
+        for name, desc in zip(df['NAME'], df['DESC']):
+            # This is an empty loop body as per the requirement
+            # You can process 'name' and 'desc' here if needed
+            pass
     try:
         parse_tree = read_ftrex_ftp(file_path)
         visitor = OpsaMefXmlVisitor()
