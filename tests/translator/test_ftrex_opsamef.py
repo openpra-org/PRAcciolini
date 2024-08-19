@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from pracciolini.translator.ftrex_opsamef import ftrex_ftp_to_opsamef_xml
+from pracciolini.translator.ftrex_opsamef.ftrex_opsamef import ftrex_ftp_to_opsamef_xml
 from pracciolini.utils.file_ops import FileOps
 
 
@@ -18,7 +18,7 @@ class TestTranslateFtrexFtpToOpenPSAMefXml(unittest.TestCase):
         """
         Test that provided FTREX FTP files can be translated to valid OpenPSA XMLs
         """
-        valid_schema_path = os.path.join(self.fixtures_path, 'valid')
+        valid_schema_path = os.path.join(self.fixtures_path, 'valid/unit')
         ftrex_ftp_files = FileOps.find_files_by_extension(valid_schema_path, '.ftp')
         for file_path in ftrex_ftp_files:
             print(f"translating {file_path}")
