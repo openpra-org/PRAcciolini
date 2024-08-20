@@ -1,4 +1,3 @@
-from exceptiongroup import catch
 from lxml import etree
 
 from pracciolini.grammar.ftrex.ftp.parser import ftrex_ftpParser
@@ -54,6 +53,11 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
         if gate_type is not None:
             gate_type_element = OpsaMefXmlVisitor.create_gate_type(gate_type)
             element.append(gate_type_element)
+        return element, gate_type_element
+
+    @staticmethod
+    def create_schema_safe_name(unsafe_event_id: str):
+
         return element, gate_type_element
 
 
