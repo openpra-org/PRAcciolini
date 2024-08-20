@@ -51,7 +51,6 @@ def read_ftrex_ftp(file_path: str) -> ParseTreeVisitor:
         print(f"An error occurred during validation: {e}")
 
 
-@translation("filepath_ftrex_ftp", "ftrex_ftp")
 def validate_ftp_file(file_path: str) -> bool:
     try:
         read_ftrex_ftp(file_path)
