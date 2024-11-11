@@ -154,13 +154,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-*.csv
-*.xml
-*.json
-*.ftp
-*.eta
-*.caf
-
 !tests/fixtures/**/*.csv
 !tests/fixtures/**/*.xml
 !tests/fixtures/**/*.json

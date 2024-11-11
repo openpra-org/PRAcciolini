@@ -16,7 +16,7 @@ class TestValidateInputFtrexFtp(unittest.TestCase):
 
     def test_valid_input(self):
         """
-        Test that valid XML files pass the schema validation.
+        Test that provided ftrex FTP files pass the ANTLRv4 schema validation.
         """
         valid_schema_path = os.path.join(self.fixtures_path, 'valid')
         valid_files = FileOps.find_files_by_extension(valid_schema_path, '.ftp')

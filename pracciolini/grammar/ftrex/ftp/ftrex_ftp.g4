@@ -44,10 +44,13 @@ treeSection
 /**
  * @brief Represents a gate within a tree section.
  *
- * A gate is defined by a gate identifier, gate type, one or more child references, and an end of line.
+ * A gate is defined by a gate identifier, a gate type, followed by a list of child references, and an end of line.
+ * The gate identifier uniquely identifies the gate, and the gate type specifies the operational behavior of the gate.
+ * The list of child references may span multiple lines, capturing all associated child nodes until the declaration of
+ * a new gate or the end of the tree section.
  */
 gate
-    : gateId gateType childRef+ EOL
+    : gateId gateType childRefList EOL
     ;
 
 /**
@@ -89,10 +92,10 @@ processCommands
 /**
  * @brief Contains one or more import commands.
  *
- * Each command consists of a number, an EVENT_ID, and an end of line.
+ * Each command consists of a number, an EVENT_ID, and optionally an initiator tag ('I') followed by an end of line.
  */
 importCommands
-    : (NUMBER EVENT_ID EOL)+
+    : (NUMBER EVENT_ID INITIATOR_TAG? EOL)+
     ;
 
 /**
@@ -110,7 +113,7 @@ gateId
  * A gate type can be either '*' or '+'.
  */
 gateType
-    : '*' | '+'
+    : '*' | '+' | NON_NEG_INTEGER
     ;
 
 /**
@@ -120,6 +123,18 @@ gateType
  */
 childRef
     : EVENT_ID
+    ;
+
+/**
+ * @brief Represents a list of child references for a gate.
+ *
+ * This list includes one or more child references, which may be listed continuously on the same line or span across
+ * multiple lines. Each child reference is defined by an EVENT_ID, and the list continues until another gate definition
+ * starts or the tree section ends. This allows for flexible formatting in the input file, accommodating entries that
+ * might not fit on a single line.
+ */
+childRefList
+    : (childRef | EOL)+
     ;
 
 /**
@@ -171,21 +186,40 @@ metaFTitle
     ;
 
 /**
+ * @brief Defines the format for a non-negative integer.
+ *
+ * A non-negative integer consists of digits without any sign.
+ */
+NON_NEG_INTEGER
+    : [0-9]+
+    ;
+
+/**
+ * @brief Defines the initiator tag used in event definitions within the import commands.
+ *
+ * The INITIATOR_TAG is represented by 'I', specifying this event to be an initiating event.
+ */
+INITIATOR_TAG
+    : 'I'
+    ;
+
+/**
+ * @brief Defines the format for a number.
+ *
+ * A number can be an integer or a floating-point number, optionally preceded by a sign and optionally followed by an
+ * exponent.
+ */
+NUMBER
+    : ('+'|'-')?[0-9]+ ('.' [0-9]+)? ([Ee] [+-]? [0-9]+)?
+    ;
+
+/**
  * @brief Defines the format for an event identifier.
  *
  * An EVENT_ID consists of alphanumeric characters, underscores, slashes, or dashes.
  */
 EVENT_ID
     : [A-Za-z0-9_/\-]+
-    ;
-
-/**
- * @brief Defines the format for a number.
- *
- * A number can be an integer or a floating-point number, optionally preceded by a sign and optionally followed by an exponent.
- */
-NUMBER
-    : ('+'|'-')?[0-9]+ ('.' [0-9]+)? ([Ee] [+-]? [0-9]+)?
     ;
 
 /**
