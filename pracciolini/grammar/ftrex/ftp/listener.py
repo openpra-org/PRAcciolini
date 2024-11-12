@@ -1,5 +1,6 @@
 # Generated from ftrex_ftp.g4 by ANTLR 4.13.2
-from antlr4 import *
+from antlr4.tree.Tree import ParseTreeListener
+
 if "." in __name__:
     from .parser import ftrex_ftpParser
 else:

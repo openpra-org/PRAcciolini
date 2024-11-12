@@ -16,7 +16,7 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
         super().__init__()
 
     def build_xml(self, tree) -> etree.ElementTree:
-        parsed = self.visit(tree)
+        self.visit(tree)
         xml_doc: etree.ElementTree = etree.ElementTree(self.opsa_mef)
         return xml_doc
 
@@ -24,7 +24,7 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
     def create_define_basic_event(name, label = None, probability = None):
         basic_event = etree.Element("define-basic-event", name=name)
         if probability is not None:
-            probability_elem = etree.SubElement(basic_event, "float", value=str(probability))
+            etree.SubElement(basic_event, "float", value=str(probability))
         if label is not None:
             label_elem = etree.SubElement(basic_event, "label")
             label_elem.text = str(label)
@@ -57,8 +57,8 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
 
     @staticmethod
     def create_schema_safe_name(unsafe_event_id: str):
-
-        return element, gate_type_element
+        # return element, gate_type_element
+        return
 
 
 

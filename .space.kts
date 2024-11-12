@@ -33,15 +33,24 @@ job("pracciolini") {
         }
     }
 
+    host("build-image") {
+      shellScript {
+        interpreter = "/bin/bash"
+        content = """
+                        docker pull $remote:{{ branchSlug }} || true
+                        docker build --tag="$remote:{{ branchSlug }}" --tag="$remote:ci-{{ run:number }}-{{ branchSlug }}" .
+                        docker push "$remote:ci-{{ run:number }}-{{ branchSlug }}"
+                        """
+      }
+    }
+
     parallel {
 
         host("Tests") {
             shellScript("pytest") {
                 interpreter = "/bin/bash"
                 content = """
-                          trap 'docker rmi "$remote:{{ branchSlug }}-s1"' EXIT
-                          docker build --tag="$remote:{{ branchSlug }}-s1" .
-                          docker run --rm "$remote:{{ branchSlug }}-s1" pytest
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest
                           """
             }
         }
@@ -50,20 +59,7 @@ job("pracciolini") {
             shellScript("pytest --cov") {
                 interpreter = "/bin/bash"
                 content = """
-                          trap 'docker rmi "$remote:{{ branchSlug }}-s2"' EXIT
-                          docker build --tag="$remote:{{ branchSlug }}-s2" .
-                          docker run --rm "$remote:{{ branchSlug }}-s2" pytest --cov
-                          """
-            }
-        }
-
-        host("Lint") {
-            shellScript("pylint") {
-                interpreter = "/bin/bash"
-                content = """
-                          trap 'docker rmi "$remote:{{ branchSlug }}-s3"' EXIT
-                          docker build --tag="$remote:{{ branchSlug }}-s3" .
-                          docker run --rm "$remote:{{ branchSlug }}-s3" pylint /app/pracciolini
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest --cov
                           """
             }
         }
@@ -72,9 +68,7 @@ job("pracciolini") {
             shellScript("ruff check") {
                 interpreter = "/bin/bash"
                 content = """
-                          trap 'docker rmi "$remote:{{ branchSlug }}-s4"' EXIT
-                          docker build --tag="$remote:{{ branchSlug }}-s4" .
-                          docker run --rm "$remote:{{ branchSlug }}-s4" ruff check
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" ruff check
                           """
             }
         }
@@ -90,9 +84,7 @@ job("pracciolini") {
         shellScript("build & package") {
             interpreter = "/bin/bash"
             content = """
-                      trap 'docker rmi "$remote:{{ branchSlug }}"' EXIT
-                      docker build --tag="$remote:{{ branchSlug }}" .
-                      docker run --rm "$remote:{{ branchSlug }}" /bin/bash -c "pytest && python -m build && twine upload dist/*"
+                      docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" /bin/bash -c "python -m build && twine upload dist/*"
                       """
         }
     }

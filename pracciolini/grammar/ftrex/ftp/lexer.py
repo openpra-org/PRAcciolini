@@ -1,7 +1,13 @@
 # Generated from ftrex_ftp.g4 by ANTLR 4.13.2
-from antlr4 import *
-from io import StringIO
+from antlr4 import PredictionContextCache
+
 import sys
+
+from antlr4.Lexer import Lexer
+from antlr4.atn.ATNDeserializer import ATNDeserializer
+from antlr4.atn.LexerATNSimulator import LexerATNSimulator
+from antlr4.dfa.DFA import DFA
+
 if sys.version_info[1] > 5:
     from typing import TextIO
 else:
@@ -94,15 +100,15 @@ class ftrex_ftpLexer(Lexer):
     modeNames = [ "DEFAULT_MODE" ]
 
     literalNames = [ "<INVALID>",
-            "'ENDTREE'", "'PROCESS'", "'IMPORT'", "'LIMIT'", "'*'", "'+'", 
+            "'ENDTREE'", "'PROCESS'", "'IMPORT'", "'LIMIT'", "'*'", "'+'",
             "'**CHAR32'", "'*XEQ'", "'**DBNAME:'", "'**FTITLE:'", "'I'" ]
 
     symbolicNames = [ "<INVALID>",
-            "NON_NEG_INTEGER", "INITIATOR_TAG", "NUMBER", "EVENT_ID", "EOL", 
+            "NON_NEG_INTEGER", "INITIATOR_TAG", "NUMBER", "EVENT_ID", "EOL",
             "WS" ]
 
-    ruleNames = [ "T__0", "T__1", "T__2", "T__3", "T__4", "T__5", "T__6", 
-                  "T__7", "T__8", "T__9", "NON_NEG_INTEGER", "INITIATOR_TAG", 
+    ruleNames = [ "T__0", "T__1", "T__2", "T__3", "T__4", "T__5", "T__6",
+                  "T__7", "T__8", "T__9", "NON_NEG_INTEGER", "INITIATOR_TAG",
                   "NUMBER", "EVENT_ID", "EOL", "WS" ]
 
     grammarFileName = "ftrex_ftp.g4"

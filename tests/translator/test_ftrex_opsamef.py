@@ -31,7 +31,7 @@ class TestTranslateFtrexFtpToOpenPSAMefXml(unittest.TestCase):
         ftrex_ftp_files = FileOps.find_files_by_extension(valid_schema_path, '.ftp')
 
         csv_db_path = os.path.join(self.current_dir, '../fixtures/ftrex/db')
-        ftrex_csv_files = FileOps.find_files_by_extension(valid_schema_path, 'MHTGR.csv')
+        ftrex_csv_files = FileOps.find_files_by_extension(csv_db_path, 'MHTGR.csv')
         for file_path in ftrex_ftp_files:
             print(f"translating {file_path}")
             with self.subTest(file_path=file_path):

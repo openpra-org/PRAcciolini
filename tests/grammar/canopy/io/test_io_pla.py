@@ -2,11 +2,19 @@ import os
 import unittest
 import flatbuffers
 
-from pracciolini.grammar.canopy.io import PLAType, PLAStart, PLAStartProductsVector, PLAAddNumProducts, \
+from pracciolini.grammar.canopy.io.pla import PLAType, PLAStart, PLAStartProductsVector, PLAAddNumProducts, \
     PLAAddNumEventsPerProduct, PLAAddType, PLAAddProducts, PLAEnd, PLA
 
-
 class TestIOCanopyPLA(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        # Get the directory of the current script
+        cls.current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Define the base path for fixtures
+        cls.fixtures_path = os.path.join(cls.current_dir, '../../../fixtures/canopy/pla/valid')
+
+
     def test_build_and_write_pla_to_file(self):
         builder = flatbuffers.Builder(0)
 
@@ -43,14 +51,18 @@ class TestIOCanopyPLA(unittest.TestCase):
         buf = builder.Output()
 
         # Write the buffer to a file named 'pla_output.bits'
-        with open('pla_output.bits', 'wb') as f:
+        file_path = '/tmp/pla_output.bits'
+        with open(file_path, 'wb') as f:
             f.write(buf)
 
-        print('PLA FlatBuffer successfully built and written to pla_output.bits')
+        print('PLA FlatBuffer successfully built and written to ', file_path)
 
-    def test_read_and_validate_pla_from_file(self):
+        self.test_read_and_validate_pla_from_file(file_path)
+
+    def test_read_and_validate_pla_from_file(self, file_path: str = None):
         # Read the flatbuffer from 'pla_output.bits'
-        file_path = 'pla_output.bits'
+        if file_path is None:
+            file_path = os.path.join(self.fixtures_path, 'dnf_8symbols_5terms.bits')
         self.assertTrue(os.path.exists(file_path), f"File '{file_path}' does not exist. Run the write test first.")
 
         with open(file_path, 'rb') as f:
@@ -80,7 +92,7 @@ class TestIOCanopyPLA(unittest.TestCase):
             product = pla.Products(i)
             self.assertEqual(product, expected_products[i], f"Product at index {i} does not match expected value.")
 
-        print('PLA FlatBuffer successfully read and validated from pla_output.bits')
+        print('PLA FlatBuffer successfully read and validated from', file_path)
 
 if __name__ == '__main__':
     unittest.main()

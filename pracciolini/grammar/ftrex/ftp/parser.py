@@ -1,8 +1,18 @@
 # Generated from ftrex_ftp.g4 by ANTLR 4.13.2
 # encoding: utf-8
-from antlr4 import *
-from io import StringIO
+from antlr4 import Parser, ATNDeserializer
+
 import sys
+
+from antlr4.BufferedTokenStream import TokenStream, Token
+from antlr4.ParserRuleContext import ParserRuleContext
+from antlr4.PredictionContext import PredictionContextCache
+from antlr4.atn.ATN import ATN
+from antlr4.atn.ParserATNSimulator import ParserATNSimulator
+from antlr4.dfa.DFA import DFA
+from antlr4.error.Errors import NoViableAltException, RecognitionException
+from antlr4.tree.Tree import ParseTreeListener, ParseTreeVisitor
+
 if sys.version_info[1] > 5:
 	from typing import TextIO
 else:
@@ -67,13 +77,13 @@ class ftrex_ftpParser ( Parser ):
 
     sharedContextCache = PredictionContextCache()
 
-    literalNames = [ "<INVALID>", "'ENDTREE'", "'PROCESS'", "'IMPORT'", 
-                     "'LIMIT'", "'*'", "'+'", "'**CHAR32'", "'*XEQ'", "'**DBNAME:'", 
+    literalNames = [ "<INVALID>", "'ENDTREE'", "'PROCESS'", "'IMPORT'",
+                     "'LIMIT'", "'*'", "'+'", "'**CHAR32'", "'*XEQ'", "'**DBNAME:'",
                      "'**FTITLE:'", "<INVALID>", "'I'" ]
 
-    symbolicNames = [ "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                      "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                      "<INVALID>", "<INVALID>", "<INVALID>", "NON_NEG_INTEGER", 
+    symbolicNames = [ "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>",
+                      "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>",
+                      "<INVALID>", "<INVALID>", "<INVALID>", "NON_NEG_INTEGER",
                       "INITIATOR_TAG", "NUMBER", "EVENT_ID", "EOL", "WS" ]
 
     RULE_file_ = 0
@@ -95,9 +105,9 @@ class ftrex_ftpParser ( Parser ):
     RULE_metaDbName = 16
     RULE_metaFTitle = 17
 
-    ruleNames =  [ "file_", "section", "treeSection", "gate", "processSection", 
-                   "importSection", "limitSection", "processCommands", "importCommands", 
-                   "gateId", "gateType", "childRef", "childRefList", "metaArgs", 
+    ruleNames =  [ "file_", "section", "treeSection", "gate", "processSection",
+                   "importSection", "limitSection", "processCommands", "importCommands",
+                   "gateId", "gateType", "childRef", "childRefList", "metaArgs",
                    "metaEncoding", "metaCmd", "metaDbName", "metaFTitle" ]
 
     EOF = Token.EOF
@@ -621,18 +631,18 @@ class ftrex_ftpParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 82 
+            self.state = 82
             self._errHandler.sync(self)
             _alt = 1
             while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
                 if _alt == 1:
-                    self.state = 77 
+                    self.state = 77
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
                     while True:
                         self.state = 76
                         self.match(ftrex_ftpParser.EVENT_ID)
-                        self.state = 79 
+                        self.state = 79
                         self._errHandler.sync(self)
                         _la = self._input.LA(1)
                         if not (_la==14):
@@ -643,7 +653,7 @@ class ftrex_ftpParser ( Parser ):
 
                 else:
                     raise NoViableAltException(self)
-                self.state = 84 
+                self.state = 84
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,4,self._ctx)
 
@@ -714,7 +724,7 @@ class ftrex_ftpParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 92 
+            self.state = 92
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while True:
@@ -732,7 +742,7 @@ class ftrex_ftpParser ( Parser ):
 
                 self.state = 91
                 self.match(ftrex_ftpParser.EOL)
-                self.state = 94 
+                self.state = 94
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
                 if not (_la==13):
@@ -940,7 +950,7 @@ class ftrex_ftpParser ( Parser ):
         self.enterRule(localctx, 24, self.RULE_childRefList)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 104 
+            self.state = 104
             self._errHandler.sync(self)
             _alt = 1
             while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
@@ -962,7 +972,7 @@ class ftrex_ftpParser ( Parser ):
 
                 else:
                     raise NoViableAltException(self)
-                self.state = 106 
+                self.state = 106
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,8,self._ctx)
 
@@ -1200,7 +1210,7 @@ class ftrex_ftpParser ( Parser ):
             while _alt!=1 and _alt!=ATN.INVALID_ALT_NUMBER:
                 if _alt==1+1:
                     self.state = 121
-                    self.matchWildcard() 
+                    self.matchWildcard()
                 self.state = 126
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,10,self._ctx)
@@ -1260,7 +1270,7 @@ class ftrex_ftpParser ( Parser ):
             while _alt!=1 and _alt!=ATN.INVALID_ALT_NUMBER:
                 if _alt==1+1:
                     self.state = 130
-                    self.matchWildcard() 
+                    self.matchWildcard()
                 self.state = 135
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,11,self._ctx)

@@ -7,7 +7,6 @@ from flatbuffers.compat import import_numpy
 
 np = import_numpy()
 
-
 class PLAType(object):
     """
     An enumeration representing the types of PLA (Programmable Logic Array).

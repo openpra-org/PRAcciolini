@@ -9,7 +9,10 @@ MANIFEST.in "Project Admin"
 LICENSE "Project Admin"
 Dockerfile "Project Admin"
 .idea "Project Admin"
+.pyproject.toml "Project Admin"
 
+
+ruff.toml "Project Admin"
 .dockerignore "Project Admin"
 .gitignore "Project Admin"
 .space.kts "Project Admin"
