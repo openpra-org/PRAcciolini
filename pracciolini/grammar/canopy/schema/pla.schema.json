@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "definitions": {
+    "canopy_io_PLAType" : {
+      "type" : "string",
+      "enum": ["DNF", "CNF"]
+    },
+    "canopy_io_PLA" : {
+      "type" : "object",
+      "properties" : {
+        "type" : {
+                "$ref" : "#/definitions/canopy_io_PLAType"
+              },
+        "products" : {
+                "type" : "array", "items" : {"type" : "integer", "minimum" : 0, "maximum" :255}
+              },
+        "num_products" : {
+                "type" : "integer", "minimum" : 0, "maximum" : 18446744073709551615
+              },
+        "num_events_per_product" : {
+                "type" : "integer", "minimum" : 0, "maximum" : 18446744073709551615
+              }
+      },
+      "additionalProperties" : false
+    }
+  },
+  "$ref" : "#/definitions/canopy_io_PLA"
+}

@@ -1,0 +1,14 @@
+namespace canopy.io;
+
+enum PLAType:byte { DNF = 0, CNF = 1 }
+
+table PLA {
+  type: PLAType = DNF;
+  products: [ubyte];
+  num_products: uint64;
+  num_events_per_product: uint64;
+}
+
+file_identifier "BPLA";
+file_extension "bits";
+root_type PLA;

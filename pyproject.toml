@@ -6,14 +6,17 @@ build-backend = "setuptools.build_meta"
 name = "pracciolini"
 description = "Conversion utility for probabilistic risk assessment (PRA) models"
 version = "0.0.1"
-readme = "README.md"
-authors = [{name = "Arjun Earthperson", email = "arjun@openpra.org"}]
+readme.content-type = "text/markdown"
+readme.file = "README.md"
+authors = [
+    { name = "Arjun Earthperson", email = "mail@earthperson.org" }
+]
 license = {file = "LICENSE"}
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -21,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Utilities",
     "Topic :: Software Development :: Libraries",
     "Topic :: Scientific/Engineering",
     "Typing :: Typed"
@@ -28,6 +32,7 @@ classifiers = [
 dependencies = [
     "antlr4-python3-runtime",
     "argparse",
+    "flatbuffers >=24",
     "lxml",
     "networkx",
     "pandas"
