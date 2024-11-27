@@ -1,0 +1,684 @@
+{
+  "version": "1.0",
+  "saphiresolveinput": {
+    "header": {
+      "projectpath": "\"C:\\Users\\egeme\\Desktop\\models\\GAS-LEAK\"",
+      "eventtree": {
+        "name": "GAS-LEAK",
+        "number": 1,
+        "initevent": 5,
+        "seqphase": 1
+      },
+      "flagnum": 0,
+      "ftcount": 4,
+      "fthigh": 4,
+      "sqcount": 9,
+      "sqhigh": 9,
+      "becount": 24,
+      "behigh": 25,
+      "mthigh": 1,
+      "phhigh": 1,
+      "truncparam": {
+        "ettruncopt": "NormalProbCutOff",
+        "fttruncopt": "GlobalProbCutOff",
+        "sizeopt": "ENoTrunc",
+        "ettruncval": 0.000E+00,
+        "fttruncval": 1.000E-08,
+        "sizeval": 99,
+        "transrepl": false,
+        "transzones": false,
+        "translevel": 0,
+        "usedual": false,
+        "dualcutoff": 0.000E+00
+      },
+      "workspacepair": {
+        "ph": 1,
+        "mt": 1
+      },
+      "iworkspacepair": {
+        "ph": 1,
+        "mt": 1
+      }
+    },
+    "sysgatelist": [
+      {
+        "name": "GAS-DETECTION",
+        "id": 1,
+        "gateid": 1,
+        "gateorig": 1,
+        "gatepos": 0,
+        "eventid": 6,
+        "gatecomp": 1,
+        "comppos": 0,
+        "compflag": " ",
+        "gateflag": " ",
+        "gatet": " ",
+        "bddsuccess": false,
+        "done": false
+      },
+      {
+        "name": "ISOLATION-VALVE-A-CLOSES",
+        "id": 2,
+        "gateid": 3,
+        "gateorig": 3,
+        "gatepos": 0,
+        "eventid": 7,
+        "gatecomp": 3,
+        "comppos": 0,
+        "compflag": " ",
+        "gateflag": " ",
+        "gatet": " ",
+        "bddsuccess": false,
+        "done": false
+      },
+      {
+        "name": "ISOLATION-VALVE-B-CLOSES",
+        "id": 3,
+        "gateid": 5,
+        "gateorig": 5,
+        "gatepos": 0,
+        "eventid": 8,
+        "gatecomp": 5,
+        "comppos": 0,
+        "compflag": " ",
+        "gateflag": " ",
+        "gatet": " ",
+        "bddsuccess": false,
+        "done": false
+      },
+      {
+        "name": "BLOWDOWN-VALVE-OPENS",
+        "id": 4,
+        "gateid": 7,
+        "gateorig": 7,
+        "gatepos": 0,
+        "eventid": 9,
+        "gatecomp": 7,
+        "comppos": 0,
+        "compflag": " ",
+        "gateflag": " ",
+        "gatet": " ",
+        "bddsuccess": false,
+        "done": false
+      }
+      ],
+    "faulttreelist": [
+    {
+      "ftheader": {
+        "ftid": 1,
+        "gtid": 1,
+        "evid": 6,
+        "defflag": 0,
+        "numgates": 2
+      },
+      "gatelist": [
+        {
+          "gateid": 1,
+          "gatetype": "or",
+          "numinputs": 2,
+          "gateinput": [
+             2
+          ],
+          "eventinput": [
+             10
+          ]
+      },
+        {
+          "gateid": 2,
+          "gatetype": "2/3",
+          "numinputs": 3,
+          "eventinput": [
+             11,
+             12,
+             13
+          ]
+      }
+      ]
+        },
+    {
+      "ftheader": {
+        "ftid": 2,
+        "gtid": 3,
+        "evid": 7,
+        "defflag": 0,
+        "numgates": 2
+      },
+      "gatelist": [
+        {
+          "gateid": 3,
+          "gatetype": "or",
+          "numinputs": 3,
+          "gateinput": [
+             4
+          ],
+          "eventinput": [
+             14,
+             15
+          ]
+      },
+        {
+          "gateid": 4,
+          "gatetype": "and",
+          "numinputs": 2,
+          "eventinput": [
+             16,
+             17
+          ]
+      }
+      ]
+        },
+    {
+      "ftheader": {
+        "ftid": 3,
+        "gtid": 5,
+        "evid": 8,
+        "defflag": 0,
+        "numgates": 2
+      },
+      "gatelist": [
+        {
+          "gateid": 5,
+          "gatetype": "or",
+          "numinputs": 3,
+          "gateinput": [
+             6
+          ],
+          "eventinput": [
+             20,
+             21
+          ]
+      },
+        {
+          "gateid": 6,
+          "gatetype": "and",
+          "numinputs": 2,
+          "eventinput": [
+             18,
+             19
+          ]
+      }
+      ]
+        },
+    {
+      "ftheader": {
+        "ftid": 4,
+        "gtid": 7,
+        "evid": 9,
+        "defflag": 0,
+        "numgates": 2
+      },
+      "gatelist": [
+        {
+          "gateid": 7,
+          "gatetype": "or",
+          "numinputs": 3,
+          "gateinput": [
+             8
+          ],
+          "eventinput": [
+             22,
+             23
+          ]
+      },
+        {
+          "gateid": 8,
+          "gatetype": "and",
+          "numinputs": 2,
+          "eventinput": [
+             24,
+             25
+          ]
+      }
+      ]
+   }
+   ],
+    "sequencelist": [
+      {
+        "seqid": 1,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 1,
+        "blocksize": 1,
+        "logiclist": [
+           262145
+          ]
+      },
+      {
+        "seqid": 2,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           262146,
+           262147,
+           262148
+          ]
+      },
+      {
+        "seqid": 3,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           262146,
+           262147,
+           2147745796
+          ]
+      },
+      {
+        "seqid": 4,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           262146,
+           2147745795,
+           262148
+          ]
+      },
+      {
+        "seqid": 5,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           262146,
+           2147745795,
+           2147745796
+          ]
+      },
+      {
+        "seqid": 6,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           2147745794,
+           262147,
+           262148
+          ]
+      },
+      {
+        "seqid": 7,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           2147745794,
+           262147,
+           2147745796
+          ]
+      },
+      {
+        "seqid": 8,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           2147745794,
+           2147745795,
+           262148
+          ]
+      },
+      {
+        "seqid": 9,
+        "etid": 1,
+        "initid": 5,
+        "qmethod": "M",
+        "qpasses": 0,
+        "numlogic": 4,
+        "blocksize": 4,
+        "logiclist": [
+           2147745793,
+           2147745794,
+           2147745795,
+           2147745796
+          ]
+      }
+    ],
+  "eventlist": [
+    {
+    "id": "1",
+    "corrgate": "0",
+    "name": "<TRUE>",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "2",
+    "corrgate": "0",
+    "name": "<FALSE>",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 0.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "3",
+    "corrgate": "0",
+    "name": "<PASS>",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "5",
+    "corrgate": "0",
+    "name": "INIT-EV",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": "I",
+    "processf": " ",
+    "calctype": "N"
+    },
+    {
+    "id": "6",
+    "corrgate": "1",
+    "name": "GAS-DETECTION",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "10",
+    "corrgate": "0",
+    "name": "CPU",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "11",
+    "corrgate": "0",
+    "name": "SEN-1",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "12",
+    "corrgate": "0",
+    "name": "SEN-2",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "13",
+    "corrgate": "0",
+    "name": "SEN-3",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "7",
+    "corrgate": "3",
+    "name": "ISOLATION-VALVE-A-CLOSES",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "14",
+    "corrgate": "0",
+    "name": "IVALA",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "15",
+    "corrgate": "0",
+    "name": "RC1",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "16",
+    "corrgate": "0",
+    "name": "SOLA",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "17",
+    "corrgate": "0",
+    "name": "SOLB",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "8",
+    "corrgate": "5",
+    "name": "ISOLATION-VALVE-B-CLOSES",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "18",
+    "corrgate": "0",
+    "name": "SOLA-DUP",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "19",
+    "corrgate": "0",
+    "name": "SOLB-DUP",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "20",
+    "corrgate": "0",
+    "name": "IVALB",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "21",
+    "corrgate": "0",
+    "name": "RC1-DUP",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "9",
+    "corrgate": "7",
+    "name": "BLOWDOWN-VALVE-OPENS",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 1.00000E+00,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "22",
+    "corrgate": "0",
+    "name": "BDVAL",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "23",
+    "corrgate": "0",
+    "name": "RC1-DUP-DUP",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "24",
+    "corrgate": "0",
+    "name": "SOLC",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    },
+    {
+    "id": "25",
+    "corrgate": "0",
+    "name": "SOLD",
+    "evworkspacepair": {
+      "ph": 1,
+      "mt": 1
+    },
+    "value": 5.00000E-02,
+    "initf": " ",
+    "processf": " ",
+    "calctype": "1"
+    }
+  ]
+}
+}

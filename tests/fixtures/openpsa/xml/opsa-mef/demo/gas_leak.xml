@@ -1,0 +1,272 @@
+<?xml version="1.0" ?>
+<opsa-mef>
+	<define-initiating-event name="INIT5" event-tree="GAS-LEAK"/>
+	<define-event-tree name="GAS-LEAK">
+		<define-functional-event name="FE1"/>
+		<define-functional-event name="FE2"/>
+		<define-functional-event name="FE3"/>
+		<define-functional-event name="FE4"/>
+		<define-sequence name="S1"/>
+		<define-sequence name="S2"/>
+		<define-sequence name="S3"/>
+		<define-sequence name="S4"/>
+		<define-sequence name="S5"/>
+		<define-sequence name="S6"/>
+		<define-sequence name="S7"/>
+		<define-sequence name="S8"/>
+		<define-sequence name="S9"/>
+		<initial-state>
+			<fork functional-event="FE1">
+				<path state="Success">
+					<collect-formula>
+						<not>
+							<gate name="FT1.G1"/>
+						</not>
+					</collect-formula>
+					<fork functional-event="FE2">
+						<path state="Success">
+							<collect-formula>
+								<not>
+									<gate name="FT2.G3"/>
+								</not>
+							</collect-formula>
+							<fork functional-event="FE3">
+								<path state="Success">
+									<collect-formula>
+										<not>
+											<gate name="FT3.G5"/>
+										</not>
+									</collect-formula>
+									<fork functional-event="FE4">
+										<path state="Success">
+											<collect-formula>
+												<not>
+													<gate name="FT4.G7"/>
+												</not>
+											</collect-formula>
+											<sequence name="S1"/>
+										</path>
+										<path state="Failure">
+											<collect-formula>
+												<gate name="FT4.G7"/>
+											</collect-formula>
+											<sequence name="S2"/>
+										</path>
+									</fork>
+								</path>
+								<path state="Failure">
+									<collect-formula>
+										<gate name="FT3.G5"/>
+									</collect-formula>
+									<fork functional-event="FE4">
+										<path state="Success">
+											<collect-formula>
+												<not>
+													<gate name="FT4.G7"/>
+												</not>
+											</collect-formula>
+											<sequence name="S3"/>
+										</path>
+										<path state="Failure">
+											<collect-formula>
+												<gate name="FT4.G7"/>
+											</collect-formula>
+											<sequence name="S4"/>
+										</path>
+									</fork>
+								</path>
+							</fork>
+						</path>
+						<path state="Failure">
+							<collect-formula>
+								<gate name="FT2.G3"/>
+							</collect-formula>
+							<fork functional-event="FE3">
+								<path state="Success">
+									<collect-formula>
+										<not>
+											<gate name="FT3.G5"/>
+										</not>
+									</collect-formula>
+									<fork functional-event="FE4">
+										<path state="Success">
+											<collect-formula>
+												<not>
+													<gate name="FT4.G7"/>
+												</not>
+											</collect-formula>
+											<sequence name="S5"/>
+										</path>
+										<path state="Failure">
+											<collect-formula>
+												<gate name="FT4.G7"/>
+											</collect-formula>
+											<sequence name="S6"/>
+										</path>
+									</fork>
+								</path>
+								<path state="Failure">
+									<collect-formula>
+										<gate name="FT3.G5"/>
+									</collect-formula>
+									<fork functional-event="FE4">
+										<path state="Success">
+											<collect-formula>
+												<not>
+													<gate name="FT4.G7"/>
+												</not>
+											</collect-formula>
+											<sequence name="S7"/>
+										</path>
+										<path state="Failure">
+											<collect-formula>
+												<gate name="FT4.G7"/>
+											</collect-formula>
+											<sequence name="S8"/>
+										</path>
+									</fork>
+								</path>
+							</fork>
+						</path>
+					</fork>
+				</path>
+				<path state="Failure">
+					<collect-formula>
+						<gate name="FT1.G1"/>
+					</collect-formula>
+					<sequence name="S9"/>
+				</path>
+			</fork>
+		</initial-state>
+	</define-event-tree>
+	<define-fault-tree name="FT1">
+		<define-gate name="G1" role="private">
+			<or>
+				<gate name="G2"/>
+				<basic-event name="BE10"/>
+			</or>
+		</define-gate>
+		<define-gate name="G2" role="private">
+			<atleast min="2">
+				<basic-event name="BE11"/>
+				<basic-event name="BE12"/>
+				<basic-event name="BE13"/>
+			</atleast>
+		</define-gate>
+	</define-fault-tree>
+	<define-fault-tree name="FT2">
+		<define-gate name="G3" role="private">
+			<or>
+				<gate name="G4"/>
+				<basic-event name="BE14"/>
+				<basic-event name="BE15"/>
+			</or>
+		</define-gate>
+		<define-gate name="G4" role="private">
+			<and>
+				<basic-event name="BE16"/>
+				<basic-event name="BE17"/>
+			</and>
+		</define-gate>
+	</define-fault-tree>
+	<define-fault-tree name="FT3">
+		<define-gate name="G5" role="private">
+			<or>
+				<gate name="G6"/>
+				<basic-event name="BE20"/>
+				<basic-event name="BE21"/>
+			</or>
+		</define-gate>
+		<define-gate name="G6" role="private">
+			<and>
+				<basic-event name="BE18"/>
+				<basic-event name="BE19"/>
+			</and>
+		</define-gate>
+	</define-fault-tree>
+	<define-fault-tree name="FT4">
+		<define-gate name="G7" role="private">
+			<or>
+				<gate name="G8"/>
+				<basic-event name="BE22"/>
+				<basic-event name="BE23"/>
+			</or>
+		</define-gate>
+		<define-gate name="G8" role="private">
+			<and>
+				<basic-event name="BE24"/>
+				<basic-event name="BE25"/>
+			</and>
+		</define-gate>
+	</define-fault-tree>
+	<model-data>
+		<define-basic-event name="BE5">
+			<label>INIT-EV</label>
+			<float value="1.000000E+00"/>
+		</define-basic-event>
+		<define-basic-event name="BE10">
+			<label>CPU</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE11">
+			<label>SEN-1</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE12">
+			<label>SEN-2</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE13">
+			<label>SEN-3</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE14">
+			<label>IVALA</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE15">
+			<label>RC1</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE16">
+			<label>SOLA</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE17">
+			<label>SOLB</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE18">
+			<label>SOLA-DUP</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE19">
+			<label>SOLB-DUP</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE20">
+			<label>IVALB</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE21">
+			<label>RC1-DUP</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE22">
+			<label>BDVAL</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE23">
+			<label>RC1-DUP-DUP</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE24">
+			<label>SOLC</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+		<define-basic-event name="BE25">
+			<label>SOLD</label>
+			<float value="5.000000E-02"/>
+		</define-basic-event>
+	</model-data>
+</opsa-mef>

@@ -1,7 +1,10 @@
 import os
+
+from pracciolini.core.decorators import validation
 from pracciolini.grammar.canopy.io.pla import PLA, PLAType
 
-def validate_pla_file(file_path):
+@validation("canopy_pla")
+def validate_pla_file(file_path: str) -> bool:
     """
     Validates that the data in the provided FlatBuffer file matches the PLA class schema.
 

@@ -9,7 +9,8 @@ version = "0.0.1"
 readme.content-type = "text/markdown"
 readme.file = "README.md"
 authors = [
-    { name = "Arjun Earthperson", email = "mail@earthperson.org" }
+    { name = "Arjun Earthperson", email = "mail@earthperson.org" },
+    { name = "Egemen Aras", email = "emaras@ncsu.edu" }
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -33,6 +34,7 @@ dependencies = [
     "antlr4-python3-runtime",
     "argparse",
     "flatbuffers >=24",
+    "jsonschema",
     "lxml",
     "networkx",
     "pandas"

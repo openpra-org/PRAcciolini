@@ -1,7 +1,9 @@
+import lxml
 from lxml import etree
 
+from pracciolini.grammar.openpsa.xml.expression import Expression, FloatExpression
 from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable, Name, Label, Attributes, Role
-from pracciolini.grammar.openpsa.xml.identifier import BooleanConstant, Expression, Units
+from pracciolini.grammar.openpsa.xml.identifier import BooleanConstant, Units
 
 
 class HouseEventDefinition(XMLSerializable):
@@ -28,15 +30,16 @@ class HouseEventDefinition(XMLSerializable):
 
 class BasicEventDefinition(XMLSerializable):
     def __init__(self, name, role=None, label=None, attributes=None, expression=None):
-        self.name = Name(name)
+        self.name: str = name
         self.role = Role(role) if role else None
         self.label = Label(label) if label else None
+        self.value = FloatExpression(expression) if expression else None
         self.attributes = Attributes(attributes) if attributes else None
         self.expression = Expression(expression) if expression else None
 
     def to_xml(self):
         element = etree.Element("define-basic-event")
-        element.append(self.name.to_xml())
+        element.append(self.name)
         if self.role:
             element.append(self.role.to_xml())
         if self.label:
@@ -47,6 +50,18 @@ class BasicEventDefinition(XMLSerializable):
             element.append(self.expression.to_xml())
         return element
 
+    @classmethod
+    def from_xml(cls, root: lxml.etree.Element) -> 'BasicEventDefinition':
+        if root is None:
+            raise lxml.etree.ParserError(root)
+        name = root.get("name")
+        label: Label = Label.from_xml(root.find("label"))
+        expr: FloatExpression = FloatExpression.from_xml(root.find("float"))
+        basic_event: BasicEventDefinition = BasicEventDefinition(name=name, label=label, expression=expr)
+        return basic_event
+
+    def __str__(self):
+        return f"basic-event-definition: name:{self.name}, value:{self.value.__str__()}, label:{self.label}"
 
 class ParameterDefinition(XMLSerializable):
     def __init__(self, name, role=None, unit=None, label=None, attributes=None, expression=None):

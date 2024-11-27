@@ -1,0 +1,338 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SaphireSolveInput",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "saphiresolveinput": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "properties": {
+            "projectpath": {
+              "type": "string"
+            },
+            "eventtree": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "initevent": {
+                  "type": "integer"
+                },
+                "seqphase": {
+                  "type": "integer"
+                }
+              },
+              "required": ["name", "number", "initevent", "seqphase"]
+            },
+            "flagnum": {
+              "type": "integer"
+            },
+            "ftcount": {
+              "type": "integer"
+            },
+            "fthigh": {
+              "type": "integer"
+            },
+            "sqcount": {
+              "type": "integer"
+            },
+            "sqhigh": {
+              "type": "integer"
+            },
+            "becount": {
+              "type": "integer"
+            },
+            "behigh": {
+              "type": "integer"
+            },
+            "mthigh": {
+              "type": "integer"
+            },
+            "phhigh": {
+              "type": "integer"
+            },
+            "truncparam": {
+              "type": "object",
+              "properties": {
+                "ettruncopt": {
+                  "type": "string"
+                },
+                "fttruncopt": {
+                  "type": "string"
+                },
+                "sizeopt": {
+                  "type": "string"
+                },
+                "ettruncval": {
+                  "type": "number"
+                },
+                "fttruncval": {
+                  "type": "number"
+                },
+                "sizeval": {
+                  "type": "integer"
+                },
+                "transrepl": {
+                  "type": "boolean"
+                },
+                "transzones": {
+                  "type": "boolean"
+                },
+                "translevel": {
+                  "type": "integer"
+                },
+                "usedual": {
+                  "type": "boolean"
+                },
+                "dualcutoff": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "ettruncopt", "fttruncopt", "sizeopt", "ettruncval",
+                "fttruncval", "sizeval", "transrepl", "transzones",
+                "translevel", "usedual", "dualcutoff"
+              ]
+            },
+            "workspacepair": {
+              "type": "object",
+              "properties": {
+                "ph": {
+                  "type": "integer"
+                },
+                "mt": {
+                  "type": "integer"
+                }
+              },
+              "required": ["ph", "mt"]
+            },
+            "iworkspacepair": {
+              "type": "object",
+              "properties": {
+                "ph": {
+                  "type": "integer"
+                },
+                "mt": {
+                  "type": "integer"
+                }
+              },
+              "required": ["ph", "mt"]
+            }
+          },
+          "required": [
+            "projectpath", "eventtree", "flagnum", "ftcount", "fthigh",
+            "sqcount", "sqhigh", "becount", "behigh", "mthigh", "phhigh",
+            "truncparam", "workspacepair", "iworkspacepair"
+          ]
+        },
+        "sysgatelist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "id": {
+                "type": "integer"
+              },
+              "gateid": {
+                "type": "integer"
+              },
+              "gateorig": {
+                "type": "integer"
+              },
+              "gatepos": {
+                "type": "integer"
+              },
+              "eventid": {
+                "type": "integer"
+              },
+              "gatecomp": {
+                "type": "integer"
+              },
+              "comppos": {
+                "type": "integer"
+              },
+              "compflag": {
+                "type": "string"
+              },
+              "gateflag": {
+                "type": "string"
+              },
+              "gatet": {
+                "type": "string"
+              },
+              "bddsuccess": {
+                "type": "boolean"
+              },
+              "done": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name", "id", "gateid", "gateorig", "gatepos", "eventid",
+              "gatecomp", "comppos", "compflag", "gateflag", "gatet",
+              "bddsuccess", "done"
+            ]
+          }
+        },
+        "faulttreelist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ftheader": {
+                "type": "object",
+                "properties": {
+                  "ftid": {
+                    "type": "integer"
+                  },
+                  "gtid": {
+                    "type": "integer"
+                  },
+                  "evid": {
+                    "type": "integer"
+                  },
+                  "defflag": {
+                    "type": "integer"
+                  },
+                  "numgates": {
+                    "type": "integer"
+                  }
+                },
+                "required": ["ftid", "gtid", "evid", "defflag", "numgates"]
+              },
+              "gatelist": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "gateid": {
+                      "type": "integer"
+                    },
+                    "gatetype": {
+                      "type": "string"
+                    },
+                    "numinputs": {
+                      "type": "integer"
+                    },
+                    "gateinput": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "eventinput": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "required": ["gateid", "gatetype", "numinputs", "gateinput", "eventinput"]
+                }
+              }
+            },
+            "required": ["ftheader", "gatelist"]
+          }
+        },
+        "sequencelist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "seqid": {
+                "type": "integer"
+              },
+              "etid": {
+                "type": "integer"
+              },
+              "initid": {
+                "type": "integer"
+              },
+              "qmethod": {
+                "type": "string"
+              },
+              "qpasses": {
+                "type": "integer"
+              },
+              "numlogic": {
+                "type": "integer"
+              },
+              "blocksize": {
+                "type": "integer"
+              },
+              "logiclist": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            },
+            "required": [
+              "seqid", "etid", "initid", "qmethod", "qpasses", "numlogic",
+              "blocksize", "logiclist"
+            ]
+          }
+        },
+        "eventlist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "corrgate": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "evworkspacepair": {
+                "type": "object",
+                "properties": {
+                  "ph": {
+                    "type": "integer"
+                  },
+                  "mt": {
+                    "type": "integer"
+                  }
+                },
+                "required": ["ph", "mt"]
+              },
+              "value": {
+                "type": "number"
+              },
+              "initf": {
+                "type": "string"
+              },
+              "processf": {
+                "type": "string"
+              },
+              "calctype": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id", "corrgate", "name", "evworkspacepair", "value",
+              "initf", "processf", "calctype"
+            ]
+          }
+        }
+      },
+      "required": ["header", "sysgatelist", "faulttreelist", "sequencelist", "eventlist"]
+    }
+  },
+  "required": ["version", "saphiresolveinput"]
+}
