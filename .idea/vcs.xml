@@ -2,5 +2,10 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tests/fixtures/openpsa/xml/opsa-mef/generic-openpsa-models" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tests/fixtures/openpsa/xml/opsa-mef/generic-pwr-openpsa-model" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tests/fixtures/openpsa/xml/opsa-mef/synthetic-openpsa-models" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tests/fixtures/saphsolve/jsinp/generic-pwr-saphsolve-model" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tests/fixtures/saphsolve/jsinp/synthetic-saphsolve-models" vcs="Git" />
   </component>
 </project>

@@ -1,4 +1,4 @@
-from typing import Set
+from typing import Set, Optional
 
 import lxml
 from lxml import etree
@@ -9,10 +9,14 @@ from pracciolini.grammar.openpsa.xml.model_data.event import ParameterDefinition
 
 
 class ModelData(XMLSerializable):
-    def __init__(self, house_events=None, basic_events=None, parameters=None):
-        self.house_events = [HouseEventDefinition(**he) for he in house_events] if house_events else set()
-        self.basic_events: Set[BasicEventDefinition] = set(BasicEventDefinition(**be) for be in basic_events) if basic_events else set()
-        self.parameters = [ParameterDefinition(**p) for p in parameters] if parameters else set()
+    def __init__(self,
+                 basic_events: Optional[Set[BasicEventDefinition]]=None,
+                 house_events: Optional[Set[HouseEventDefinition]]=None,
+                 parameters: Optional[Set[ParameterDefinition]]=None
+        ):
+        self.house_events: Set[HouseEventDefinition] = house_events if house_events is not None else set()
+        self.basic_events: Set[BasicEventDefinition] = basic_events if basic_events is not None else set()
+        self.parameters: Set[ParameterDefinition] = parameters if parameters is not None else set()
 
     def to_xml(self):
         model_data_elem = etree.Element("model-data")
@@ -26,14 +30,23 @@ class ModelData(XMLSerializable):
 
     @classmethod
     def from_xml(cls, root: lxml.etree.ElementTree) -> 'ModelData':
-        model_data: ModelData = ModelData()
         if root is None:
-            return model_data
+            raise lxml.etree.ParserError("model-data tag does not exist")
+        # parse the basic-events
+        basic_events: Set[BasicEventDefinition] = set()
         basic_events_xml = root.findall("define-basic-event")
         for basic_event_xml in basic_events_xml:
             basic_event: BasicEventDefinition = BasicEventDefinition.from_xml(basic_event_xml)
-            model_data.basic_events.add(basic_event)
-        return model_data
+            basic_events.add(basic_event)
+
+        # parse the house-events
+        house_events: Set[HouseEventDefinition] = set()
+        house_events_xml = root.findall("define-house-event")
+        for house_event_xml in house_events_xml:
+            house_event: HouseEventDefinition = HouseEventDefinition.from_xml(house_event_xml)
+            house_events.add(house_event)
+
+        return cls(basic_events=basic_events, house_events=house_events)
 
     def __str__(self):
         return (f"\n\tbasic-events: {len(self.basic_events)}"

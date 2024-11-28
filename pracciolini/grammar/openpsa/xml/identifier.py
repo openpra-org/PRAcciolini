@@ -237,6 +237,18 @@ class BooleanConstant(XMLSerializable):
         constant_elem.set("value", str(self.value).lower())  # XML boolean values are typically "true" or "false"
         return constant_elem
 
+    @classmethod
+    def from_xml(cls, root: lxml.etree.Element) -> 'BooleanConstant':
+        if root is None:
+            raise lxml.etree.ParserError(root)
+        value = root.get("value")
+        if value is None:
+            raise lxml.etree.ParserError("constant definition does not contain a value")
+        return cls(value=bool(value.lower()))
+
+    def __str__(self):
+        return f"value: {self.value}"
+
 
 class Units:
     """

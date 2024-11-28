@@ -66,6 +66,7 @@ static-analysis = [
     "ruff"
 ]
 test = [
+    "pytest-xdist",
     "pytest",
     "pytest-cov",
     "ruff"

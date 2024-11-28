@@ -20,10 +20,8 @@ class InitialStateDefinition(XMLSerializable):
             raise lxml.etree.ParserError(root)
         fork_xml = root.find("fork")
         if fork_xml is None:
-            raise lxml.etree.ParserError(root)
-        fork: ForkDefinition = ForkDefinition.from_xml(fork_xml)
-        initial_state: InitialStateDefinition = InitialStateDefinition(fork=fork)
-        return initial_state
+            raise lxml.etree.ParserError("initial-state does not contain a fork event")
+        return cls(fork=ForkDefinition.from_xml(fork_xml))
 
     def __str__(self):
         return (f"\ninitial-state:"

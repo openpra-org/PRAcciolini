@@ -47,7 +47,6 @@ class OpsaMef(XMLSerializable):
         for initiating_event_xml in initiating_events_xml:
             initiating_event: InitiatingEventDefinition = InitiatingEventDefinition.from_xml(initiating_event_xml)
             ie_set.add(initiating_event)
-            print(initiating_event)
 
         # parse event-tree definition list
         et_set: Set[EventTreeDefinition] = set()
@@ -55,7 +54,6 @@ class OpsaMef(XMLSerializable):
         for event_tree_xml in event_tree_xmls:
             event_tree: EventTreeDefinition = EventTreeDefinition.from_xml(event_tree_xml)
             et_set.add(event_tree)
-            print(event_tree)
 
         # parse fault-tree definition list
         ft_set: Set[FaultTreeDefinition] = set()
@@ -63,7 +61,6 @@ class OpsaMef(XMLSerializable):
         for fault_tree_xml in fault_tree_xmls:
             fault_tree: FaultTreeDefinition = FaultTreeDefinition.from_xml(fault_tree_xml)
             ft_set.add(fault_tree)
-            print(fault_tree)
 
         # parse the model-data
         model_data: ModelData = ModelData.from_xml(root.find("model-data"))

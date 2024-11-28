@@ -2,7 +2,7 @@ from typing import Optional
 import lxml
 from lxml import etree
 
-from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable, Role, Label, Attributes
+from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
 
 
 class InitiatingEventDefinition(XMLSerializable):
@@ -37,27 +37,20 @@ class InitiatingEventDefinition(XMLSerializable):
         The to_xml() method then converts it into the corresponding XML element structure.
     """
 
-    def __init__(self, name: str, event_tree: str, role: Optional[Role] = None,
-                 label: Optional[Label] = None, attributes: Optional[Attributes] = None) -> None:
+    def __init__(self,
+                 name: str,
+                 event_tree: Optional[str],
+        ) -> None:
         """
         Initializes an InitiatingEventDefinition object.
 
         Args:
             name (str): The unique name for the initiating event.
-            event_tree (str): The name of the referenced event tree.
-            role (Optional[Role]): An optional Role object associated with the event.
-                Defaults to None.
-            label (Optional[Label]): An optional Label object associated with the event.
-                Defaults to None.
-            attributes (Optional[Attributes]): An optional Attributes object containing
-                additional attributes. Defaults to None.
+            event_tree (Optional[str]): The name of the referenced event tree.
         """
 
         self.name: str = name
-        self.event_tree: str = event_tree
-        self.role: Optional[Role] = role
-        self.label: Optional[Label] = label
-        self.attributes: Optional[Attributes] = attributes
+        self.event_tree: Optional[str] = event_tree
 
     def to_xml(self) -> etree.Element:
         """
@@ -69,13 +62,8 @@ class InitiatingEventDefinition(XMLSerializable):
 
         element = etree.Element("define-initiating-event")
         element.set("name", self.name)
-        element.set("event-tree", self.event_tree)
-        if self.role:
-            element.set("role", self.role.to_xml())
-        if self.label:
-            element.append(self.label.to_xml())
-        if self.attributes:
-            element.append(self.attributes.to_xml())
+        if self.event_tree:
+            element.set("event-tree", self.event_tree)
         return element
 
     @classmethod
@@ -104,9 +92,6 @@ class InitiatingEventDefinition(XMLSerializable):
             raise lxml.etree.ParserError("Missing required attribute 'name' for initiating-event-definition")
 
         event_tree = root.get("event-tree")
-        if event_tree is None:
-            raise lxml.etree.ParserError("Missing required attribute 'event-tree' for initiating-event-definition")
-
         return cls(name=name, event_tree=event_tree)
 
     def __str__(self) -> str:
@@ -117,14 +102,8 @@ class InitiatingEventDefinition(XMLSerializable):
         """
 
         str_rep = [
-            "initiating-event-definition:",
-            f"name: {self.name}",
-            f"event-tree-ref: {self.event_tree}",
+            f"define-initiating-event name={self.name}"
         ]
-        if self.label is not None:
-            str_rep.append(f"label: {self.label}")
-        if self.role is not None:
-            str_rep.append(f"role: {self.role}")
-        if self.attributes is not None:
-            str_rep.append(f"attributes: {self.attributes}")
-        return "\t".join(str_rep)
+        if self.event_tree:
+            str_rep.append(f"event-tree-ref: {self.event_tree}")
+        return " ".join(str_rep)

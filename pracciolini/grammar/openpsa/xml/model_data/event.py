@@ -1,3 +1,5 @@
+from typing import Optional
+
 import lxml
 from lxml import etree
 
@@ -7,26 +9,32 @@ from pracciolini.grammar.openpsa.xml.identifier import BooleanConstant, Units
 
 
 class HouseEventDefinition(XMLSerializable):
-    def __init__(self, name, role=None, label=None, attributes=None, boolean_constant=None):
-        self.name = Name(name)
-        self.role = Role(role) if role else None
-        self.label = Label(label) if label else None
-        self.attributes = Attributes(attributes) if attributes else None
-        self.boolean_constant = BooleanConstant(boolean_constant) if boolean_constant is not None else None
+    def __init__(self, name: str, boolean_constant: Optional[BooleanConstant] = None):
+        self.name: str = name
+        self.boolean_constant: Optional[BooleanConstant] = boolean_constant if boolean_constant is not None else None
 
     def to_xml(self):
         element = etree.Element("define-house-event")
-        element.append(self.name.to_xml())
-        if self.role:
-            element.append(self.role.to_xml())
-        if self.label:
-            element.append(self.label.to_xml())
-        if self.attributes:
-            element.append(self.attributes.to_xml())
+        element.set("name", self.name)
         if self.boolean_constant:
             element.append(self.boolean_constant.to_xml())
         return element
 
+    @classmethod
+    def from_xml(cls, root: lxml.etree.Element) -> 'HouseEventDefinition':
+        if root is None:
+            raise lxml.etree.ParserError(root)
+        name = root.get("name")
+        if name is None:
+            raise lxml.etree.ParserError("house-event definition does not contain a name")
+        constant_xml = root.find("constant")
+        constant: Optional[BooleanConstant] = None
+        if constant_xml is not None:
+            constant = BooleanConstant.from_xml(constant_xml)
+        return cls(name=name, boolean_constant=constant)
+
+    def __str__(self):
+        return f"house-event-definition: name:{self.name}, constant:{self.boolean_constant.__str__()}"
 
 class BasicEventDefinition(XMLSerializable):
     def __init__(self, name, role=None, label=None, attributes=None, expression=None):

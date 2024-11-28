@@ -1,0 +1,15 @@
+[submodule "tests/fixtures/openpsa/xml/opsa-mef/generic-openpsa-models"]
+	path = tests/fixtures/openpsa/xml/opsa-mef/generic-openpsa-models
+	url = https://github.com/openpra-org/generic-openpsa-models.git
+[submodule "tests/fixtures/openpsa/xml/opsa-mef/synthetic-openpsa-models"]
+	path = tests/fixtures/openpsa/xml/opsa-mef/synthetic-openpsa-models
+	url = https://github.com/openpra-org/synthetic-openpsa-models.git
+[submodule "tests/fixtures/openpsa/xml/opsa-mef/generic-pwr-openpsa-model"]
+	path = tests/fixtures/openpsa/xml/opsa-mef/generic-pwr-openpsa-model
+	url = https://github.com/openpra-org/generic-pwr-openpsa-model.git
+[submodule "tests/fixtures/saphsolve/jsinp/synthetic-saphsolve-models"]
+	path = tests/fixtures/saphsolve/jsinp/synthetic-saphsolve-models
+	url = https://github.com/openpra-org/synthetic-saphsolve-models.git
+[submodule "tests/fixtures/saphsolve/jsinp/generic-pwr-saphsolve-model"]
+	path = tests/fixtures/saphsolve/jsinp/generic-pwr-saphsolve-model
+	url = https://github.com/openpra-org/generic-pwr-saphsolve-model.git

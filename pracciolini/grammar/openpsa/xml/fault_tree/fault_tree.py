@@ -8,7 +8,10 @@ from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
 
 
 class FaultTreeDefinition(XMLSerializable):
-    def __init__(self, name:str, gates: Optional[Set[GateDefinition]]=None):
+    def __init__(self,
+                 name:str,
+                 gates: Optional[Set[GateDefinition]]=None
+        ):
         self.name: str = name
         self.gates: Set[GateDefinition] = gates if gates is not None else set()
 
@@ -27,16 +30,14 @@ class FaultTreeDefinition(XMLSerializable):
         if name is None:
             raise lxml.etree.ParserError("name is missing in define-fault-tree")
 
-        fault_tree: FaultTreeDefinition = cls(name=name)
-
         # parse gate definition list
         gate_definitions_xml = root.findall("define-gate")
-        for gate_definiton_xml in gate_definitions_xml:
-            gate_definition: GateDefinition = GateDefinition.from_xml(gate_definiton_xml)
-            fault_tree.gates.add(gate_definition)
-            print(gate_definition)
+        gates: Set[GateDefinition] = set()
+        for gate_definition_xml in gate_definitions_xml:
+            gate_definition: GateDefinition = GateDefinition.from_xml(gate_definition_xml)
+            gates.add(gate_definition)
 
-        return fault_tree
+        return cls(name=name, gates=gates)
 
     def __str__(self):
         return (f"\nfault-tree-definition: name: {self.name}"

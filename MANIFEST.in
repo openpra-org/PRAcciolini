@@ -4,3 +4,5 @@ recursive-include pracciolini *
 prune tests/
 exclude *.ipynb
 exclude notebooks/
+exclude venv
+exclude env
