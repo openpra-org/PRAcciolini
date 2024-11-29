@@ -18,5 +18,5 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     apt install -y --no-install-recommends build-essential git && \
     git submodule update --init --recursive && \
     pip install --upgrade pip twine wheel setuptools && \
-    pip install -e .[dev] && \
+    pip install -e ".[dev]" && \
     rm -rf /var/lib/apt/lists/*
