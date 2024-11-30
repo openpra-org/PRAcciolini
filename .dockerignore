@@ -1,5 +1,3 @@
-.gitignore
-.git
 build
 dist
 *.egg-info
