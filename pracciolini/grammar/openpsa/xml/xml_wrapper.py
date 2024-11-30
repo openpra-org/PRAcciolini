@@ -32,6 +32,6 @@ class XMLWrapper:
             raise lxml.etree.ParserError(f"Parsed element is not a {cls.tag}")
 
         if len(cls.req_attrs.intersection(set(root.attrib.keys()))) < len(cls.req_attrs):
-            raise lxml.etree.ParserError(f"Some required keys are missing from parsed element")
+            raise lxml.etree.ParserError("Some required keys are missing from parsed element")
 
         return cls(*[el for el in root], **root.attrib)

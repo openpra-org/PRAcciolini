@@ -140,8 +140,8 @@ def _test_build_initiating_event_from_input_xml_helper(file_path: str) -> Tuple[
             if not isinstance(initiating_event, InitiatingEventDefinition):
                 return False, f"initiating_event is not an instance of InitiatingEventDefinition in {file_path}"
             # check for correct conversion from xml -> python class, with all fields
-            print(initiating_event, initiating_event["name"], initiating_event["event-tree"])
-            print(initiating_event.to_xml())
+            # print(initiating_event, initiating_event["name"], initiating_event["event-tree"])
+            # print(initiating_event.to_xml())
             if not initiating_event["name"] or initiating_event["name"] == "":
                 return False, f"initiating_event.name is invalid in {file_path}"
             if initiating_event["event-tree"] != initiating_event_xml.get("event-tree"):
@@ -152,9 +152,9 @@ def _test_build_initiating_event_from_input_xml_helper(file_path: str) -> Tuple[
             # convert back to xml and compare
             initiating_event_converted_xml = initiating_event.to_xml()
             if initiating_event["name"]!= initiating_event_converted_xml.get("name"):
-                return False, f"converted initiating_event.name did not convert back to xml"
+                return False, "converted initiating_event.name did not convert back to xml"
             if initiating_event["event-tree"] != initiating_event_converted_xml.get("event-tree"):
-                return False, f"converted initiating_event.event-tree did not convert back to xml"
+                return False, "converted initiating_event.event-tree did not convert back to xml"
 
             ## test-type reserialization
             match, msg = _test_nested_reserialization("initiating_event", initiating_event_xml, initiating_event_converted_xml)
@@ -254,7 +254,7 @@ def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optiona
 
 
 def _parallel_test_wrapper(cls, test_fn, files: Set[str]):
-    with ProcessPoolExecutor(max_workers=1) as executor:
+    with ProcessPoolExecutor() as executor:
         future_to_file = {
             executor.submit(test_fn, file_path): file_path for file_path in files
         }
