@@ -12,6 +12,24 @@ from pracciolini.utils.file_ops import FileOps
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_openpsa_input_xml_file
 
 
+def _test_nested_reserialization(key: str, xml, converted_xml) -> Tuple[bool, Optional[str]]:
+    ## test-type [re-serialization]: lxml.etree.ElementTree -> OpsaMef python subclass -> lxml.etree.ElementTree
+    if xml.attrib != converted_xml.attrib:
+        return False, f"re-serialized xml attributes for {key} do not match"
+
+    tags = sorted(list([element.tag for element in xml]))
+    converted_tags = sorted(list([element.tag for element in converted_xml]))
+    if tags != converted_tags:
+        return False, f"re-serialized xml tags for {key} do not match"
+
+    for tag_a, tag_b in zip(tags, converted_tags):
+        keys_match, message = _test_nested_reserialization(key, tag_a, tag_b)
+        if not keys_match:
+            return False, message
+
+    return True, None
+
+
 def _test_build_model_data_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
     """
     Helper function to test building a ModelData object from a given OpenPSA XML file path.
@@ -112,21 +130,37 @@ def _test_build_initiating_event_from_input_xml_helper(file_path: str) -> Tuple[
     else:
         print(f"Error: {error_message}")
     """
-
     try:
         xml_data = read_openpsa_xml(file_path)
         initiating_events_xml = xml_data.findall("define-initiating-event")
         for initiating_event_xml in initiating_events_xml:
             initiating_event = InitiatingEventDefinition.from_xml(initiating_event_xml)
+            ## test-type [deserialization]: lxml.etree.ElementTree -> OpsaMef python subclass
+            # check for correct conversion from xml -> python class
             if not isinstance(initiating_event, InitiatingEventDefinition):
                 return False, f"initiating_event is not an instance of InitiatingEventDefinition in {file_path}"
-            if not initiating_event.name or initiating_event.name == "":
+            # check for correct conversion from xml -> python class, with all fields
+            print(initiating_event, initiating_event["name"], initiating_event["event-tree"])
+            print(initiating_event.to_xml())
+            if not initiating_event["name"] or initiating_event["name"] == "":
                 return False, f"initiating_event.name is invalid in {file_path}"
+            if initiating_event["event-tree"] != initiating_event_xml.get("event-tree"):
+                return False, f"initiating_event.event_tree is invalid in {file_path}"
+
+            return True, None
+            ## test-type [serialization]: OpsaMef python subclass -> lxml.etree.ElementTree
+            # convert back to xml and compare
             initiating_event_converted_xml = initiating_event.to_xml()
-            if initiating_event.name != initiating_event_converted_xml.get("name"):
+            if initiating_event["name"]!= initiating_event_converted_xml.get("name"):
                 return False, f"converted initiating_event.name did not convert back to xml"
-            if initiating_event.event_tree != initiating_event_converted_xml.get("event-tree"):
+            if initiating_event["event-tree"] != initiating_event_converted_xml.get("event-tree"):
                 return False, f"converted initiating_event.event-tree did not convert back to xml"
+
+            ## test-type reserialization
+            match, msg = _test_nested_reserialization("initiating_event", initiating_event_xml, initiating_event_converted_xml)
+            if not match:
+                return False, msg
+
         return True, None
     except Exception as e:
         return False, str(e)
@@ -220,7 +254,7 @@ def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optiona
 
 
 def _parallel_test_wrapper(cls, test_fn, files: Set[str]):
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=1) as executor:
         future_to_file = {
             executor.submit(test_fn, file_path): file_path for file_path in files
         }
