@@ -8,6 +8,7 @@ job("pracciolini") {
     val image = "pracciolini"
     val remote = "$registry$image"
 
+
     host("Image Tags") {
         // use kotlinScript blocks for usage of parameters
         kotlinScript("Generate slugs") { api ->
