@@ -10,6 +10,21 @@ from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
 
 
+class OpenPSA():
+
+    @staticmethod
+    def from_xml(root: lxml.etree.ElementTree):
+        if root is None:
+            raise lxml.etree.ParserError("cannot parse unknown type")
+        tag = root.tag
+        match tag:
+            case InitiatingEventDefinition.tag:
+                return InitiatingEventDefinition.from_xml(root)
+            case _:
+                raise lxml.etree.ParserError(f"unknown tag type:{tag}")
+
+
+
 class OpsaMef(XMLSerializable):
     def __init__(self,
                  initiating_events: Optional[Set[InitiatingEventDefinition]] = None,

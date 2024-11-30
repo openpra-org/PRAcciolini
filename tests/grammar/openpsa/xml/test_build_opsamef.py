@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pracciolini.grammar.openpsa.xml.event_tree.initiating_event import InitiatingEventDefinition
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
-from pracciolini.grammar.openpsa.xml.openpsa_mef import OpsaMef
+from pracciolini.grammar.openpsa.xml.openpsa_mef import OpsaMef, OpenPSA
 from pracciolini.utils.file_ops import FileOps
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_openpsa_input_xml_file
 
@@ -93,71 +93,15 @@ def _test_build_opsamef_from_input_xml_helper(file_path: str) -> Tuple[bool, Opt
         return False, str(e)
 
 
-def _test_build_initiating_event_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
-    """
-    This helper function tests the ability to build an `InitiatingEventDefinition` object
-    from an OpenPSA input XML file containing a "define-initiating-event" element.
-
-    Args:
-        file_path (str): The path to the OpenPSA input XML file.
-
-    Returns:
-        Tuple[bool, Optional[str]]:
-            - A tuple containing:
-                - success (bool): True if the test passed, False otherwise.
-                - error_message (Optional[str]): An error message if the test failed,
-                                                 None otherwise.
-
-    Raises:
-        Exception: Any unexpected exception encountered during processing.
-
-    This function iterates through all "define-initiating-event" elements in the
-    provided XML file and attempts to create an `InitiatingEventDefinition` object
-    from each one. It performs the following checks:
-
-        - Whether the created object is an instance of `InitiatingEventDefinition`.
-        - Whether the `name` attribute of the initiating event is valid (not empty).
-
-    If any of these checks fail, the function returns `False` and a specific error
-    message indicating the issue. Otherwise, it returns `True` and `None`.
-
-    **Example:**
-
-    ```python
-    success, error_message = _test_build_initiating_event_from_input_xml_helper("my_openpsa_file.xml")
-    if success:
-        print("Successfully validated initiating events in the XML file.")
-    else:
-        print(f"Error: {error_message}")
-    """
+def _test_build_tag_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
     try:
         xml_data = read_openpsa_xml(file_path)
-        initiating_events_xml = xml_data.findall("define-initiating-event")
-        for initiating_event_xml in initiating_events_xml:
-            initiating_event = InitiatingEventDefinition.from_xml(initiating_event_xml)
-            ## test-type [deserialization]: lxml.etree.ElementTree -> OpsaMef python subclass
-            # check for correct conversion from xml -> python class
-            if not isinstance(initiating_event, InitiatingEventDefinition):
-                return False, f"initiating_event is not an instance of InitiatingEventDefinition in {file_path}"
-            # check for correct conversion from xml -> python class, with all fields
-            # print(initiating_event, initiating_event["name"], initiating_event["event-tree"])
-            # print(initiating_event.to_xml())
-            if not initiating_event["name"] or initiating_event["name"] == "":
-                return False, f"initiating_event.name is invalid in {file_path}"
-            if initiating_event["event-tree"] != initiating_event_xml.get("event-tree"):
-                return False, f"initiating_event.event_tree is invalid in {file_path}"
-
-            return True, None
-            ## test-type [serialization]: OpsaMef python subclass -> lxml.etree.ElementTree
-            # convert back to xml and compare
-            initiating_event_converted_xml = initiating_event.to_xml()
-            if initiating_event["name"]!= initiating_event_converted_xml.get("name"):
-                return False, "converted initiating_event.name did not convert back to xml"
-            if initiating_event["event-tree"] != initiating_event_converted_xml.get("event-tree"):
-                return False, "converted initiating_event.event-tree did not convert back to xml"
-
-            ## test-type reserialization
-            match, msg = _test_nested_reserialization("initiating_event", initiating_event_xml, initiating_event_converted_xml)
+        tag = InitiatingEventDefinition.tag
+        tags_xml = xml_data.findall(tag)
+        for tag_xml in tags_xml:
+            tag_cls_instance = OpenPSA.from_xml(tag_xml)
+            ## test-type re-serialization
+            match, msg = _test_nested_reserialization(tag, tag_xml, tag_cls_instance.to_xml())
             if not match:
                 return False, msg
 
@@ -254,7 +198,7 @@ def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optiona
 
 
 def _parallel_test_wrapper(cls, test_fn, files: Set[str]):
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=8) as executor:
         future_to_file = {
             executor.submit(test_fn, file_path): file_path for file_path in files
         }
@@ -315,7 +259,7 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
         _parallel_test_wrapper(self, _test_build_opsamef_from_input_xml_helper, self.flat_fixtures["valid"])
 
     def test_build_initiating_event_from_input_xml(self):
-        _parallel_test_wrapper(self, _test_build_initiating_event_from_input_xml_helper, self.flat_fixtures["valid"])
+        _parallel_test_wrapper(self, _test_build_tag_from_input_xml_helper, self.flat_fixtures["valid"])
 
     def test_valid_input_schema_xml(self):
         _parallel_test_wrapper(self, _test_valid_input_schema_xml_helper, self.flat_fixtures["valid"])

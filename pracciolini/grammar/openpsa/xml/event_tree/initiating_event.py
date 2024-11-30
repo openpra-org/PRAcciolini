@@ -19,16 +19,3 @@ class InitiatingEventDefinition(XMLWrapper):
     @classmethod
     def from_xml(cls: type(XMLWrapper), root: lxml.etree.ElementTree):
         return super().from_xml(root)
-
-    def __str__(self) -> str:
-        str_rep = [
-            f"[{self.tag}",
-        ]
-        for key in self.attrs:
-            value = self.__dict__.get(key)
-            str_rep.append(f"{key}='{value}'")
-        str_rep.append("]")
-        for child in self.children:
-            str_rep.append(child)
-        str_rep.append(f"[/{self.tag}]")
-        return " ".join(str_rep)
