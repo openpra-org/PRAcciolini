@@ -13,6 +13,25 @@ from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_open
 
 
 def _test_build_model_data_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    Helper function to test building a ModelData object from a given OpenPSA XML file path.
+
+    This function attempts to read the XML data using `read_openpsa_xml`, then locates the
+    "model-data" element within the parsed data. If the element exists, it attempts to
+    construct a `ModelData` object from it using the `from_xml` class method.
+
+    This function performs basic validation to ensure the constructed object is indeed an
+    instance of `ModelData`. If successful, it returns `(True, None)`. Otherwise, it returns
+    `(False, error_message)` where `error_message` describes the encountered issue.
+
+    Args:
+        file_path (str): Path to the OpenPSA XML file.
+
+    Returns:
+        Tuple[bool, Optional[str]]: A tuple containing a boolean indicating success and
+                                      an optional error message if unsuccessful.
+    """
+
     try:
         xml_data = read_openpsa_xml(file_path)
         model_data_xml = xml_data.find("model-data")
@@ -30,6 +49,21 @@ def _test_build_model_data_from_input_xml_helper(file_path: str) -> Tuple[bool, 
 
 
 def _test_build_opsamef_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    Helper function to test building an OpsaMef object from a given OpenPSA XML file path.
+
+    This function follows a similar structure as `_test_build_model_data_from_input_xml_helper`.
+    It attempts to read the XML data, construct an `OpsaMef` object using `from_xml`, and
+    performs basic validation to ensure the constructed object is an instance of `OpsaMef`.
+
+    Args:
+        file_path (str): Path to the OpenPSA XML file.
+
+    Returns:
+        Tuple[bool, Optional[str]]: A tuple containing a boolean indicating success and
+                                      an optional error message if unsuccessful.
+    """
+
     try:
         xml_data = read_openpsa_xml(file_path)
         opsa_mef = OpsaMef.from_xml(xml_data)
@@ -42,6 +76,43 @@ def _test_build_opsamef_from_input_xml_helper(file_path: str) -> Tuple[bool, Opt
 
 
 def _test_build_initiating_event_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    This helper function tests the ability to build an `InitiatingEventDefinition` object
+    from an OpenPSA input XML file containing a "define-initiating-event" element.
+
+    Args:
+        file_path (str): The path to the OpenPSA input XML file.
+
+    Returns:
+        Tuple[bool, Optional[str]]:
+            - A tuple containing:
+                - success (bool): True if the test passed, False otherwise.
+                - error_message (Optional[str]): An error message if the test failed,
+                                                 None otherwise.
+
+    Raises:
+        Exception: Any unexpected exception encountered during processing.
+
+    This function iterates through all "define-initiating-event" elements in the
+    provided XML file and attempts to create an `InitiatingEventDefinition` object
+    from each one. It performs the following checks:
+
+        - Whether the created object is an instance of `InitiatingEventDefinition`.
+        - Whether the `name` attribute of the initiating event is valid (not empty).
+
+    If any of these checks fail, the function returns `False` and a specific error
+    message indicating the issue. Otherwise, it returns `True` and `None`.
+
+    **Example:**
+
+    ```python
+    success, error_message = _test_build_initiating_event_from_input_xml_helper("my_openpsa_file.xml")
+    if success:
+        print("Successfully validated initiating events in the XML file.")
+    else:
+        print(f"Error: {error_message}")
+    """
+
     try:
         xml_data = read_openpsa_xml(file_path)
         initiating_events_xml = xml_data.findall("define-initiating-event")
@@ -51,12 +122,49 @@ def _test_build_initiating_event_from_input_xml_helper(file_path: str) -> Tuple[
                 return False, f"initiating_event is not an instance of InitiatingEventDefinition in {file_path}"
             if not initiating_event.name or initiating_event.name == "":
                 return False, f"initiating_event.name is invalid in {file_path}"
+            initiating_event_converted_xml = initiating_event.to_xml()
+            if initiating_event.name != initiating_event_converted_xml.get("name"):
+                return False, f"converted initiating_event.name did not convert back to xml"
+            if initiating_event.event_tree != initiating_event_converted_xml.get("event-tree"):
+                return False, f"converted initiating_event.event-tree did not convert back to xml"
         return True, None
     except Exception as e:
         return False, str(e)
 
 
 def _test_valid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validates an OpenPSA input XML file against its schema.
+
+    Args:
+        file_path (str): The path to the OpenPSA input XML file.
+
+    Returns:
+        Tuple[bool, Optional[str]]:
+            - A tuple containing:
+                - success (bool): True if the file is valid, False otherwise.
+                - error_message (Optional[str]): An error message if the file is invalid,
+                                                  None otherwise.
+
+    Raises:
+        Exception: Any unexpected exception encountered during validation.
+
+    This function uses the `validate_openpsa_input_xml_file` function to check if
+    the provided XML file conforms to the OpenPSA schema. If the validation
+    succeeds, the function returns `True` and `None`. Otherwise, it returns `False`
+    and an error message indicating the validation failure.
+
+    **Example:**
+
+    ```python
+    success, error_message = _test_valid_input_schema_xml_helper("my_openpsa_file.xml")
+    if success:
+        print("The XML file is valid.")
+    else:
+        print(f"Error: {error_message}")
+    ```
+    """
+
     try:
         is_valid = validate_openpsa_input_xml_file(file_path)
         if is_valid:
@@ -68,6 +176,39 @@ def _test_valid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optional[
 
 
 def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    Tests if an invalid OpenPSA input XML file fails schema validation.
+
+    Args:
+        file_path (str): The path to the invalid OpenPSA input XML file.
+
+    Returns:
+        Tuple[bool, Optional[str]]:
+            - A tuple containing:
+                - success (bool): True if the file is invalid and fails validation,
+                                  False otherwise.
+                - error_message (Optional[str]): An error message if the file is valid
+                                                  unexpectedly, None otherwise.
+
+    Raises:
+        Exception: Any unexpected exception encountered during validation.
+
+    This function validates the provided XML file against the OpenPSA schema.
+    If the file is invalid and the validation fails as expected, the function
+    returns `True` and `None`. If the file is valid unexpectedly, it returns `False`
+    and an error message indicating the unexpected validation success.
+
+    **Example:**
+
+    ```python
+    success, error_message = _test_invalid_input_schema_xml_helper("invalid_openpsa_file.xml")
+    if success:
+        print("The XML file is invalid as expected.")
+    else:
+        print(f"Error: {error_message}")
+    ```
+    """
+
     try:
         is_valid = validate_openpsa_input_xml_file(file_path)
         if not is_valid:
@@ -79,9 +220,27 @@ def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optiona
 
 
 class TestBuildOpenPSAMefInputXML(unittest.TestCase):
+    """
+    Tests the construction of OpenPSA MEF input XML from various valid and invalid input XML files.
+
+    This test class provides a comprehensive framework for testing functions
+    related to building OpenPSA MEF input XML. It leverages a set of fixture
+    files categorized as valid and invalid to ensure thorough testing.
+
+    The `setUpClass` method initializes class-level variables used throughout
+    the test cases.
+    """
 
     @classmethod
     def setUpClass(cls):
+        """
+        Sets up class-level variables for testing.
+
+        This method initializes the `current_dir`, `base_fixtures_path`,
+        `fixture_directories`, and `flat_fixtures` variables, preparing the test
+        environment for subsequent test cases.
+        """
+
         # Get the directory of the current script
         cls.current_dir = os.path.dirname(os.path.abspath(__file__))
         # Define the base path for fixtures
@@ -117,6 +276,21 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
 
 
     def test_build_model_data_from_input_xml(self):
+        """
+        Tests building ModelData objects from valid OpenPSA input XML files.
+
+        This test iterates through all valid fixture files listed in the
+        `flat_fixtures` dictionary under the "valid" category. It uses a
+        `ProcessPoolExecutor` for parallel processing and calls the
+        `_test_build_model_data_from_input_xml_helper` function for each file.
+        The helper function is assumed to exist and perform the actual
+        testing logic.
+
+        If the helper function returns `True`, the test passes. Otherwise,
+        the test fails with an informative error message. Any exceptions raised
+        during testing are also caught and reported as failures.
+        """
+
         files = self.flat_fixtures["valid"]
         file_list = list(files)
         with ProcessPoolExecutor() as executor:
