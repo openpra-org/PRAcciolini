@@ -219,28 +219,27 @@ def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optiona
         return False, str(e)
 
 
+def _parallel_test_wrapper(cls, test_fn, files: Set[str]):
+    with ProcessPoolExecutor() as executor:
+        future_to_file = {
+            executor.submit(test_fn, file_path): file_path for file_path in files
+        }
+        for future in as_completed(future_to_file):
+            file_path = future_to_file[future]
+            with cls.subTest(file_path=file_path):
+                try:
+                    success, error = future.result()
+                    if success:
+                        pass  # Test passed
+                    else:
+                        cls.fail(f"Test failed for {file_path}: {error}")
+                except Exception as e:
+                    cls.fail(f"Test raised exception for {file_path}: {str(e)}")
+
+
 class TestBuildOpenPSAMefInputXML(unittest.TestCase):
-    """
-    Tests the construction of OpenPSA MEF input XML from various valid and invalid input XML files.
-
-    This test class provides a comprehensive framework for testing functions
-    related to building OpenPSA MEF input XML. It leverages a set of fixture
-    files categorized as valid and invalid to ensure thorough testing.
-
-    The `setUpClass` method initializes class-level variables used throughout
-    the test cases.
-    """
-
     @classmethod
     def setUpClass(cls):
-        """
-        Sets up class-level variables for testing.
-
-        This method initializes the `current_dir`, `base_fixtures_path`,
-        `fixture_directories`, and `flat_fixtures` variables, preparing the test
-        environment for subsequent test cases.
-        """
-
         # Get the directory of the current script
         cls.current_dir = os.path.dirname(os.path.abspath(__file__))
         # Define the base path for fixtures
@@ -276,114 +275,19 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
 
 
     def test_build_model_data_from_input_xml(self):
-        """
-        Tests building ModelData objects from valid OpenPSA input XML files.
-
-        This test iterates through all valid fixture files listed in the
-        `flat_fixtures` dictionary under the "valid" category. It uses a
-        `ProcessPoolExecutor` for parallel processing and calls the
-        `_test_build_model_data_from_input_xml_helper` function for each file.
-        The helper function is assumed to exist and perform the actual
-        testing logic.
-
-        If the helper function returns `True`, the test passes. Otherwise,
-        the test fails with an informative error message. Any exceptions raised
-        during testing are also caught and reported as failures.
-        """
-
-        files = self.flat_fixtures["valid"]
-        file_list = list(files)
-        with ProcessPoolExecutor() as executor:
-            future_to_file = {
-                executor.submit(_test_build_model_data_from_input_xml_helper, file_path): file_path for file_path in file_list
-            }
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
-                with self.subTest(file_path=file_path):
-                    try:
-                        success, error = future.result()
-                        if success:
-                            pass  # Test passed
-                        else:
-                            self.fail(f"Test failed for {file_path}: {error}")
-                    except Exception as e:
-                        self.fail(f"Test raised exception for {file_path}: {str(e)}")
+        _parallel_test_wrapper(self, _test_build_model_data_from_input_xml_helper, self.flat_fixtures["valid"])
 
     def test_build_opsamef_from_input_xml(self):
-        files = self.flat_fixtures["valid"]
-        file_list = list(files)
-        with ProcessPoolExecutor() as executor:
-            future_to_file = {
-                executor.submit(_test_build_opsamef_from_input_xml_helper, file_path): file_path for file_path in file_list
-            }
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
-                with self.subTest(file_path=file_path):
-                    try:
-                        success, error = future.result()
-                        if success:
-                            pass  # Test passed
-                        else:
-                            self.fail(f"Test failed for {file_path}: {error}")
-                    except Exception as e:
-                        self.fail(f"Test raised exception for {file_path}: {str(e)}")
+        _parallel_test_wrapper(self, _test_build_opsamef_from_input_xml_helper, self.flat_fixtures["valid"])
 
     def test_build_initiating_event_from_input_xml(self):
-        files = self.flat_fixtures["valid"]
-        file_list = list(files)
-        with ProcessPoolExecutor() as executor:
-            future_to_file = {
-                executor.submit(_test_build_initiating_event_from_input_xml_helper, file_path): file_path for file_path in file_list
-            }
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
-                with self.subTest(file_path=file_path):
-                    try:
-                        success, error = future.result()
-                        if success:
-                            pass  # Test passed
-                        else:
-                            self.fail(f"Test failed for {file_path}: {error}")
-                    except Exception as e:
-                        self.fail(f"Test raised exception for {file_path}: {str(e)}")
+        _parallel_test_wrapper(self, _test_build_initiating_event_from_input_xml_helper, self.flat_fixtures["valid"])
 
     def test_valid_input_schema_xml(self):
-        """
-        Test that valid XML files pass the schema validation.
-        """
-        files = self.flat_fixtures["valid"]
-        file_list = list(files)
-        with ProcessPoolExecutor() as executor:
-            future_to_file = {
-                executor.submit(_test_valid_input_schema_xml_helper, file_path): file_path for file_path in file_list
-            }
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
-                with self.subTest(file_path=file_path):
-                    try:
-                        success, error = future.result()
-                        self.assertTrue(success, error)
-                    except Exception as e:
-                        self.fail(f"Test raised exception for {file_path}: {str(e)}")
+        _parallel_test_wrapper(self, _test_valid_input_schema_xml_helper, self.flat_fixtures["valid"])
 
     def test_invalid_input_schema_xml(self):
-        """
-        Test that invalid XML files fail the schema validation.
-        """
-        files = self.flat_fixtures["invalid"]
-        file_list = list(files)
-        with ProcessPoolExecutor() as executor:
-            future_to_file = {
-                executor.submit(_test_invalid_input_schema_xml_helper, file_path): file_path for file_path in file_list
-            }
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
-                with self.subTest(file_path=file_path):
-                    try:
-                        success, error = future.result()
-                        self.assertTrue(success, error)
-                    except Exception as e:
-                        self.fail(f"Test raised exception for {file_path}: {str(e)}")
+        _parallel_test_wrapper(self, _test_invalid_input_schema_xml_helper, self.flat_fixtures["invalid"])
 
 
 if __name__ == '__main__':
