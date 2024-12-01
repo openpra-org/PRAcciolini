@@ -5,7 +5,7 @@ from typing import Dict, Tuple, Optional
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from pracciolini.grammar.openpsa.xml.event_tree.initiating_event import InitiatingEventDefinition
+from pracciolini.grammar.openpsa.xml.xml_wrapper import InitiatingEventDefinition
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
 from pracciolini.grammar.openpsa.xml.openpsa_mef import OpsaMef, OpenPSA
 from pracciolini.utils.file_ops import FileOps
@@ -96,10 +96,11 @@ def _test_build_opsamef_from_input_xml_helper(file_path: str) -> Tuple[bool, Opt
 def _test_build_tag_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
     try:
         xml_data = read_openpsa_xml(file_path)
-        tag = InitiatingEventDefinition.tag
+        tag = InitiatingEventDefinition.info.tag
         tags_xml = xml_data.findall(tag)
         for tag_xml in tags_xml:
-            tag_cls_instance = OpenPSA.from_xml(tag_xml)
+            tag_cls_instance = InitiatingEventDefinition.from_xml(tag_xml)
+            print(tag_cls_instance)
             ## test-type re-serialization
             match, msg = _test_nested_reserialization(tag, tag_xml, tag_cls_instance.to_xml())
             if not match:

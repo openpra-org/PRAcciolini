@@ -1,51 +1,57 @@
-from typing import Set, Any, Tuple
-import lxml
+from typing import Set, Tuple
+from lxml.etree import ElementTree, Element, ParserError
+
+from pracciolini.grammar.openpsa.xml.info import XMLInfo
+from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
+
 
 
 class XMLWrapper:
-    tag: str
-    attrs: Set[str]
-    req_attrs: Set[str]
-    def __init__(self, *args, **kwargs) -> None:
+
+    def __init__(self, info: XMLInfo, *args, **kwargs) -> None:
+        self.info: XMLInfo = info
         self.__dict__.update(kwargs)
-        self.children : Tuple[Any, ...] = args
+        self.children : Tuple[type(XMLWrapper), ...] = args
 
     def __getitem__(self, item):
         return self.__dict__.get(item)
 
-    def to_xml(self) -> lxml.etree.Element:
-        element = lxml.etree.Element(self.tag)
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+    def to_xml(self) -> Element:
+        element = Element(self.info.tag)
         # begin by setting the tag
-        element.tag = self.tag
+        element.tag = self.info.tag
 
         # then, set all the required attrs, defaulting to an empty string if None
-        for key in self.req_attrs:
+        for key in self.info.req_attrs:
             value = self.__dict__.get(key, "")
             element.set(key, value)
 
         # next, for all the optional attrs, only write the keys if not None
-        for key in self.attrs.difference(self.req_attrs):
+        for key in self.info.attrs.difference(self.info.req_attrs):
             value = self.__dict__.get(key)
             if value is not None:
                 element.set(key, value)
 
         # finally, do this recursively for all the children
         for child in self.children:
-            element.append(child)
+            element.append(child.to_xml())
         return element
 
     def __str__(self) -> str:
         str_rep = [
-            f"[{self.tag}",
+            f"[{self.info.tag}",
         ]
 
         # then, set all the required attrs, defaulting to an empty string if None
-        for key in self.req_attrs:
+        for key in self.info.req_attrs:
             value = self.__dict__.get(key, "")
             str_rep.append(f"{key}='{value}'")
 
         # next, for all the optional attrs, only write the keys if not None
-        for key in self.attrs.difference(self.req_attrs):
+        for key in self.info.attrs.difference(self.info.req_attrs):
             value = self.__dict__.get(key)
             if value is not None:
                 str_rep.append(f"{key}='{value}'")
@@ -53,23 +59,47 @@ class XMLWrapper:
         str_rep.append("]")
         for child in self.children:
             str_rep.append(child)
-        str_rep.append(f"[/{self.tag}]")
+        str_rep.append(f"[/{self.info.tag}]")
         return " ".join(str_rep)
 
-    @classmethod
-    def from_xml(cls: type('XMLWrapper'), root: lxml.etree.ElementTree):
+    @staticmethod
+    def parse_xml(root: ElementTree):
         if root is None:
-            raise lxml.etree.ParserError("Invalid XML element: root cannot be None")
+            raise ParserError("cannot parse unknown type")
+        tag = root.tag
+        match tag:
+            case InitiatingEventDefinition.info.tag:
+                return InitiatingEventDefinition.from_xml(root)
+            case ModelData.info.tag:
+                return ModelData.from_xml(root)
+            case _:
+                raise ParserError(f"unknown tag type:{tag}")
 
-        if root.tag != cls.tag:
-            raise lxml.etree.ParserError(f"Parsed element is not a {cls.tag}")
+    @classmethod
+    def from_xml(cls: type('XMLWrapper'), root: ElementTree):
+        if root is None:
+            raise ParserError("Invalid XML element: root cannot be None")
 
-        if len(cls.req_attrs.intersection(set(root.attrib.keys()))) < len(cls.req_attrs):
-            raise lxml.etree.ParserError("Some required keys are missing from parsed element")
+        if root.tag != cls.info.tag:
+            raise ParserError(f"Parsed element is not a {cls.info.tag}")
 
-        for req_key in cls.req_attrs:
+        if len(cls.info.req_attrs.intersection(set(root.attrib.keys()))) < len(cls.info.req_attrs):
+            raise ParserError("Some required keys are missing from parsed element")
+
+        for req_key in cls.info.req_attrs:
             req_value = root.get(req_key)
             if req_value is None or req_value == '':
-                raise lxml.etree.ParserError("Some required keys are missing values from parsed element")
+                raise ParserError("Some required keys are missing values from parsed element")
 
-        return cls(*[el for el in root], **root.attrib)
+        children = [XMLWrapper.parse_xml(child) for child in list(root)]
+
+        return cls(*children, **root.attrib)
+
+
+class InitiatingEventDefinition(XMLWrapper):
+    info: XMLInfo = XMLInfo()
+    info.tag = "define-initiating-event"
+    info.attrs = {'name', 'event-tree'}
+    info.req_attrs = {'name'}
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(info=InitiatingEventDefinition.info, *args, **kwargs)

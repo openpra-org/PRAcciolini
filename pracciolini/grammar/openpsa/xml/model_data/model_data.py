@@ -4,11 +4,18 @@ import lxml
 from lxml import etree
 
 from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
+from pracciolini.grammar.openpsa.xml.info import XMLInfo
 from pracciolini.grammar.openpsa.xml.model_data.event import BasicEventDefinition, HouseEventDefinition
 from pracciolini.grammar.openpsa.xml.model_data.event import ParameterDefinition
+from pracciolini.grammar.openpsa.xml.xml_wrapper import XMLWrapper
 
 
-class ModelData(XMLSerializable):
+class ModelData(XMLWrapper):
+    info: XMLInfo = XMLInfo()
+    info.tag = "model-data"
+    info.attrs = {'name', 'event-tree'}
+    info.req_attrs = {'name'}
+    info.children = {'define-basic-event', 'define-house-event', 'define-parameter-event'}
     def __init__(self,
                  basic_events: Optional[Set[BasicEventDefinition]]=None,
                  house_events: Optional[Set[HouseEventDefinition]]=None,

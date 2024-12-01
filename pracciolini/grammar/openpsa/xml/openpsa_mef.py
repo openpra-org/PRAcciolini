@@ -4,13 +4,13 @@ import lxml.etree
 from lxml import etree
 
 from pracciolini.grammar.openpsa.xml.event_tree.event_tree import EventTreeDefinition
-from pracciolini.grammar.openpsa.xml.event_tree.initiating_event import InitiatingEventDefinition
+from pracciolini.grammar.openpsa.xml.xml_wrapper import InitiatingEventDefinition
 from pracciolini.grammar.openpsa.xml.fault_tree.fault_tree import FaultTreeDefinition
 from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
 
 
-class OpenPSA():
+class OpenPSA:
 
     @staticmethod
     def from_xml(root: lxml.etree.ElementTree):
@@ -18,7 +18,7 @@ class OpenPSA():
             raise lxml.etree.ParserError("cannot parse unknown type")
         tag = root.tag
         match tag:
-            case InitiatingEventDefinition.tag:
+            case InitiatingEventDefinition.info.tag:
                 return InitiatingEventDefinition.from_xml(root)
             case _:
                 raise lxml.etree.ParserError(f"unknown tag type:{tag}")
