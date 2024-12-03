@@ -15,12 +15,13 @@ from pracciolini.grammar.openpsa.xml.define_event import BasicEventDefinition, H
 from pracciolini.grammar.openpsa.xml.expression.arithmetic import ArithmeticAddExpression, ArithmeticNegativeExpression, ArthmeticSubtractExpression, ArthmeticMultiplyExpression, \
     ArthmeticDivideExpression
 from pracciolini.grammar.openpsa.xml.expression.logical import RuleDefinition, RuleReference, CardinalityExpression, \
-    AtleastExpression, NotExpression
+    AtleastExpression, NotExpression, OrExpression, AndExpression
 from pracciolini.grammar.openpsa.xml.expression.nonparam_dist import HistogramBin, Histogram
 from pracciolini.grammar.openpsa.xml.expression.param_dist import WeibullExpression, LognormalDeviateExpression, \
     UniformDeviateExpression, ExponentialExpression, GLMExpression, NormalDeviateExpression, \
     GammaDeviateExpression, BetaDeviateExpression, PeriodicTestExpression
-from pracciolini.grammar.openpsa.xml.fault_tree.event_reference import BasicEventReference, GateReference
+from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference
+from pracciolini.grammar.openpsa.xml.fault_tree import FaultTreeDefinition, GateDefinition, GateReference
 from pracciolini.grammar.openpsa.xml.identifier import Label
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
 from pracciolini.grammar.openpsa.xml.openpsa_mef import OpsaMef
@@ -52,6 +53,9 @@ class OpsaMefXmlRegistry:
         XMLInfo.register(BranchDefinition)
         XMLInfo.register(BranchReference)
 
+        ## fault treee
+        XMLInfo.register(FaultTreeDefinition)
+        XMLInfo.register(GateDefinition)
 
         ## higher-level
         XMLInfo.register(ModelData)
@@ -72,6 +76,7 @@ class OpsaMefXmlRegistry:
         XMLInfo.register(ParameterReference)
         XMLInfo.register(GateReference)
         XMLInfo.register(BasicEventReference)
+        XMLInfo.register(HouseEventReference)
 
         ## constants
         XMLInfo.register(ConstantExpression)
@@ -103,6 +108,8 @@ class OpsaMefXmlRegistry:
         XMLInfo.register(CardinalityExpression)
         XMLInfo.register(AtleastExpression)
         XMLInfo.register(NotExpression)
+        XMLInfo.register(OrExpression)
+        XMLInfo.register(AndExpression)
 
         ## exotic
         XMLInfo.register(PeriodicTestExpression)

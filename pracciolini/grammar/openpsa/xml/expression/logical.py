@@ -37,6 +37,22 @@ class AtleastExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
+class OrExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="or",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
+class AndExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="and",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
 class NotExpression(XMLSerializable):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="not",

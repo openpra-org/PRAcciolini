@@ -4,54 +4,74 @@ import unittest
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import lxml
+from lxml.etree import Element
 
 from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
 from pracciolini.utils.file_ops import FileOps
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_openpsa_input_xml_file
 
 
-def _test_nested_reserialization(xml, converted_xml) -> Tuple[bool, Optional[str]]:
+def _deep_compare_xml(xml_a: Element, xml_b: Element) -> bool:
 
-    if xml.tag != converted_xml.tag:
-        return False, "re-serialized xml tags do not match"
+    if xml_a is None and xml_b is None:
+        return True
 
-    if xml.attrib != converted_xml.attrib:
-        return False, "re-serialized xml attributes do not match"
+    if xml_a is None or xml_b is None:
+        raise ValueError("cannot compare with NoneType")
 
-    tag_names = sorted([element.tag for element in xml])
-    converted_tag_names = sorted([element.tag for element in converted_xml])
-    if tag_names != converted_tag_names:
-        return False, "re-serialized xml children tag names do not match"
+    if not hasattr(xml_a, "tag") or not hasattr(xml_b, "tag"):
+        raise ValueError("cannot compare when elements don't have tags")
 
-    tags = (element for element in xml)
-    converted_tags = (element for element in converted_xml)
-    for tag_a, tag_b in zip(tags, converted_tags):
-        keys_match, message = _test_nested_reserialization(tag_a, tag_b)
-        if not keys_match:
-            return False, message
+    #print(f"comparing tags {xml_a.tag} and {xml_b.tag}")
 
-    return True, None
+    if getattr(xml_a, "tag") != getattr(xml_b, "tag"):
+        raise ValueError(f"re-serialized xml tags do not match: {xml_a.tag} != {xml_b.tag}")
+
+    if hasattr(xml_a, "attrib") ^ hasattr(xml_b, "attrib"):
+        raise ValueError("cannot compare when one element does not have attrib")
+
+    if xml_a.attrib != xml_b.attrib:
+        raise ValueError(f"attributes [{xml_a.attrib}] do not match [{xml_b.attrib}]")
+
+    #print(f"comparing [{xml_a.tag}:{xml_a.attrib}] and [{xml_b.tag}:{xml_b.attrib}]")
+
+    child_tags_a = sorted(element.tag for element in xml_a)
+    child_tags_b = sorted(element.tag for element in xml_b)
+    if child_tags_a != child_tags_b:
+        raise ValueError(f"child tags [{child_tags_a}] do not match [{child_tags_b}], extra: [{set(child_tags_a) - set(child_tags_b)}]")
+
+    children_a = (element for element in xml_a)
+    children_b = (element for element in xml_b)
+
+    all_match_so_far = True
+    for child_a, child_b in zip(children_a, children_b):
+        this_one_matches = _deep_compare_xml(child_a, child_b)
+        all_match_so_far = all_match_so_far and this_one_matches
+
+    return all_match_so_far
 
 def _test_build_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
     tags: Set[str] = {
-        #"//opsa-mef",
-        "//define-event-tree",
-        "//define-initiating-event",
-        "//define-functional-event",
-        "//define-sequence",
-        "//model-data"
+        # "//opsa-mef",
+        # "//define-event-tree",
+        # "//define-initiating-event",
+        # "//define-functional-event",
+        # "//define-sequence",
+        "//model-data",
+        "//define-fault-tree"
     }
     xquery = "|".join(tags)
+    all_match = True
     try:
         xml_data = read_openpsa_xml(file_path)
         events_xml = xml_data.xpath(xquery)
         for event_xml in events_xml:
-            event = OpsaMefXmlRegistry.instance().build(event_xml)
-            converted_xml = event.to_xml()
-            match, msg = _test_nested_reserialization(event_xml, converted_xml)
-            #print(f"{msg}, {lxml.etree.tostring(event_xml)}, {lxml.etree.tostring(converted_xml)}")
-            if not match:
-                return False, f"{msg}, {lxml.etree.tostring(event_xml)}, {lxml.etree.tostring(converted_xml)}"
+            try:
+                event = OpsaMefXmlRegistry.instance().build(event_xml)
+                converted_xml = event.to_xml()
+                all_match = all_match and _deep_compare_xml(event_xml, converted_xml)
+            except ValueError as ve:
+                return False, f"{ve}: \n {lxml.etree.tostring(event_xml)}, {lxml.etree.tostring(converted_xml)}"
     except Exception as e:
         return False, str(e)
     return True, None
