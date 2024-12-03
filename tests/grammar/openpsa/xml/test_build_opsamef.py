@@ -37,13 +37,9 @@ def _test_build_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[st
         #"//opsa-mef",
         "//define-event-tree",
         "//define-initiating-event",
-        # "//define-functional-event",
-        # "//define-sequence",
+        "//define-functional-event",
+        "//define-sequence",
         "//model-data"
-        # "//float",
-        # "//define-basic-event",
-        # "//define-house-event",
-        # "//define-parameter"
     }
     xquery = "|".join(tags)
     try:
@@ -135,7 +131,6 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
             print(f"Total files [{key_valid}]: {len(cls.flat_fixtures[key_valid])}")
 
         cls.flat_fixtures["benchmarks"] = cls.flat_fixtures["valid"] - cls.flat_fixtures["valid-fragments"]
-        print(f"Total files [benchmarks]: {len(cls.flat_fixtures["benchmarks"])}")
 
     def test_build_from_input_xml(self):
         _parallel_test_wrapper(self, _test_build_from_input_xml_helper, self.flat_fixtures["benchmarks"])
