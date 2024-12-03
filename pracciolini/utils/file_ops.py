@@ -1,6 +1,8 @@
 import glob
 import os
 import json
+
+import lxml
 from lxml import etree
 from typing import Set, List, Any
 
@@ -168,12 +170,13 @@ class FileOps(object):
         return files
 
     @classmethod
-    def parse_xml_file(cls, file_path: str) -> etree.ElementTree:
+    def parse_xml_file(cls, file_path: str, remove_comments: bool = True) -> etree.ElementTree:
         """
         Parses an XML file and returns its document tree.
 
         Parameters:
             file_path (str): The path to the XML file to parse.
+            remove_comments (bool): Whether to remove the <comment> tags.
 
         Returns:
             etree.ElementTree: The parsed XML document tree.
@@ -193,7 +196,7 @@ class FileOps(object):
         """
         try:
             with open(cls.verify_file_path(file_path), 'rb') as file:
-                return etree.parse(file)
+                return etree.parse(file, parser=lxml.etree.XMLParser(remove_comments=remove_comments))
         except etree.XMLSyntaxError as e:
             print(f"Error parsing {file_path}: {e}")
             raise

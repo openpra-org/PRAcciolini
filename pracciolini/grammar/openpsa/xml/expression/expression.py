@@ -6,6 +6,7 @@ from lxml import etree
 from pracciolini.grammar.openpsa.xml.fault_tree.event_reference import GateReference, BasicEventReference
 from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
 
+
 class Expression(XMLSerializable):
     def __init__(self, content):
         self.content = content
@@ -44,25 +45,6 @@ class Expression(XMLSerializable):
         ]
         return "\n".join(str_rep)
 
-
-class FloatExpression(XMLSerializable):
-    def __init__(self, value: str = None):
-        self.value: str = value if value else None
-
-    def to_xml(self):
-        expression_elem = etree.Element("float")
-        expression_elem.set("value", self.value)
-        return expression_elem
-
-    @classmethod
-    def from_xml(cls, element: lxml.etree.Element):
-        if element is None:
-            return None
-        float_expression: FloatExpression = FloatExpression(value=element.get("value"))
-        return float_expression
-
-    def __str__(self):
-        return self.value
 
 
 class NotExpression:

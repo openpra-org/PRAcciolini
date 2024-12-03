@@ -53,6 +53,7 @@ dev = [
     "autopep8",
     "build",
     "pyarrow",
+    "pytest-xdist",
     "pytest",
     "pytest-cov",
     "pylint",

@@ -37,7 +37,6 @@ job("pracciolini") {
       shellScript {
         interpreter = "/bin/bash"
         content = """
-                        docker login $remote -u {{ project:OPENPRA_DOCKER_REGISTRY_USERNAME }} -p {{ project:OPENPRA_DOCKER_REGISTRY_PASSWORD }}
                         docker pull $remote:{{ branchSlug }} || true
                         docker build --tag="$remote:{{ branchSlug }}" --tag="$remote:ci-{{ run:number }}-{{ branchSlug }}" .
                         docker push "$remote:ci-{{ run:number }}-{{ branchSlug }}"
@@ -51,7 +50,7 @@ job("pracciolini") {
             shellScript("pytest") {
                 interpreter = "/bin/bash"
                 content = """
-                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest -n 2
                           """
             }
         }
@@ -60,7 +59,7 @@ job("pracciolini") {
             shellScript("pytest --cov") {
                 interpreter = "/bin/bash"
                 content = """
-                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest --cov
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest --cov -n 2
                           """
             }
         }

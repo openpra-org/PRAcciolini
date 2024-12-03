@@ -2,16 +2,16 @@ from pracciolini.grammar.openpsa.xml.define_event import EventDefinition, NamedE
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo
 
 
-class SequenceDefinition(EventDefinition):
+class BranchDefinition(EventDefinition):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs["info"] = XMLInfo(tag="define-sequence",
+        kwargs["info"] = XMLInfo(tag="define-branch",
                                  class_type=self,
-                                 children={"event-tree", "collect-expression", "rule"})
+                                 children={"fork", "branch", "sequence", "event-tree"})
         super().__init__(*args, **kwargs)
 
 
-class SequenceReference(NamedEvent):
+class BranchReference(NamedEvent):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs["info"] = XMLInfo(tag="sequence",
+        kwargs["info"] = XMLInfo(tag="branch",
                                  class_type=self)
         super().__init__(*args, **kwargs)

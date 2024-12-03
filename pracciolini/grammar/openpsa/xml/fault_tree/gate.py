@@ -3,7 +3,7 @@ from typing import Optional
 import lxml
 from lxml import etree
 
-from pracciolini.grammar.openpsa.xml.expression import Expression
+from pracciolini.grammar.openpsa.xml.expression.expression import Expression
 from pracciolini.grammar.openpsa.xml.identifier import XMLSerializable
 
 
