@@ -10,23 +10,23 @@ from pracciolini.utils.file_ops import FileOps
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_openpsa_input_xml_file
 
 
-def _test_nested_reserialization(key: str, xml, converted_xml) -> Tuple[bool, Optional[str]]:
+def _test_nested_reserialization(xml, converted_xml) -> Tuple[bool, Optional[str]]:
 
     if xml.tag != converted_xml.tag:
-        return False, f"re-serialized xml tags for {key} do not match"
+        return False, f"re-serialized xml tags do not match"
 
     if xml.attrib != converted_xml.attrib:
-        return False, f"re-serialized xml attributes for {key} do not match"
+        return False, f"re-serialized xml attributes do not match"
 
     tag_names = sorted([element.tag for element in xml])
     converted_tag_names = sorted([element.tag for element in converted_xml])
     if tag_names != converted_tag_names:
-        return False, f"re-serialized xml children tag names for {key} do not match"
+        return False, f"re-serialized xml children tag names do not match"
 
     tags = (element for element in xml)
     converted_tags = (element for element in converted_xml)
     for tag_a, tag_b in zip(tags, converted_tags):
-        keys_match, message = _test_nested_reserialization(key, tag_a, tag_b)
+        keys_match, message = _test_nested_reserialization(tag_a, tag_b)
         if not keys_match:
             return False, message
 
@@ -44,13 +44,11 @@ def _test_build_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[st
     xquery = "|".join(tags)
     try:
         xml_data = read_openpsa_xml(file_path)
-        # for tag in tags:
-        #     tag_xml = "//" + tag
         events_xml = xml_data.xpath(xquery)
         for event_xml in events_xml:
             event = OpsaMefXmlRegistry.instance().build(event_xml)
             converted_xml = event.to_xml()
-            match, msg = _test_nested_reserialization(xquery, event_xml, converted_xml)
+            match, msg = _test_nested_reserialization(event_xml, converted_xml)
             #print(f"{msg}, {lxml.etree.tostring(event_xml)}, {lxml.etree.tostring(converted_xml)}")
             if not match:
                 return False, f"{msg}, {lxml.etree.tostring(event_xml)}, {lxml.etree.tostring(converted_xml)}"
