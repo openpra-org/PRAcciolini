@@ -13,15 +13,15 @@ from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_open
 def _test_nested_reserialization(xml, converted_xml) -> Tuple[bool, Optional[str]]:
 
     if xml.tag != converted_xml.tag:
-        return False, f"re-serialized xml tags do not match"
+        return False, "re-serialized xml tags do not match"
 
     if xml.attrib != converted_xml.attrib:
-        return False, f"re-serialized xml attributes do not match"
+        return False, "re-serialized xml attributes do not match"
 
     tag_names = sorted([element.tag for element in xml])
     converted_tag_names = sorted([element.tag for element in converted_xml])
     if tag_names != converted_tag_names:
-        return False, f"re-serialized xml children tag names do not match"
+        return False, "re-serialized xml children tag names do not match"
 
     tags = (element for element in xml)
     converted_tags = (element for element in converted_xml)
