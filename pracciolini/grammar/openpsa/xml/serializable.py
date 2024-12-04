@@ -1,6 +1,7 @@
 import inspect
+from abc import ABC, abstractmethod
 import logging
-from typing import Tuple, Set, Dict, Optional, List, Any
+from typing import Tuple, Set, Dict, Optional, List, Any, Literal, Union
 from importlib import import_module
 import lxml
 from lxml import etree
@@ -14,48 +15,46 @@ __CLASS_TAG_MAP__: Dict[str, List['XMLInfo']] = {}
 
 class XMLInfo:
 
-
     def __init__(self,
-                 tag: str,
                  class_type: Any,
                  attrs: Optional[Set[str]] = None,
                  req_attrs: Optional[Set[str]] = None,
                  children: Optional[Set[str]] = None,
-                 req_children: Optional[Set[str]] = None
+                 req_children: Optional[Set[str]] = None,
+                 tag: Optional[str] = None,
+                 attrs_extra_constraints: Optional[Dict[str, Set[str]]] = None,
+                 children_extra_constraints: Optional[Dict[str, Set[str]]] = None,
         ):
-        self.tag: str = tag
         self.classname = class_type.__class__.__name__
         self.module_path = inspect.getmodule(class_type).__name__
-        #self.module_path = class_type.__class__.__module__
         XMLInfo._validate(self)
         self.attrs: Set[str] = attrs if attrs is not None else set()
         self.req_attrs: Set[str] = req_attrs if req_attrs is not None else set()
         self.children: Set[str] = children if children is not None else set()
         self.req_children: Set[str] = req_children if req_children is not None else set()
-        #XMLInfo.update_registry(tag, self)
+        self.attrs_extra_constraints: Optional[Dict[str, Set[str]]] = attrs_extra_constraints
+        self.children_extra_constraints: Optional[Dict[str, Set[str]]] = children_extra_constraints
 
     @staticmethod
     def _validate(info: 'XMLInfo') -> None:
-        required = [info.tag, info.classname, info.module_path]
+        required = [info.classname, info.module_path]
         for item in required:
             if item is None or item == "":
                 raise ValueError("XMLInfo required fields cannot be empty")
 
     @staticmethod
-    def register(class_: Any) -> None:
-        class_()
+    def register(class_type: Any) -> None:
+        class_type()
 
+    redundant_calls = 0
     @staticmethod
     def update_registry(tag: str, info: 'XMLInfo') -> None:
-        XMLInfo._validate(info)
-
-        if tag != info.tag:
-            raise ValueError("XMLInfo tag key must match XMLInfo tag")
-
         ## first, check for existing tags
         if tag in __TAG_MAP__:
+            XMLInfo.redundant_calls += 1
+            print(f"redundant calls: {XMLInfo.redundant_calls}")
             return
-
+        XMLInfo._validate(info)
         __TAG_MAP__[tag] = info
 
     @staticmethod
@@ -63,9 +62,9 @@ class XMLInfo:
         return __TAG_MAP__.get(tag, alternative)
 
     def __str__(self):
-        str_rep = [self.tag, self.classname, self.module_path, f"attrs: ['{",".join(self.attrs)}']",
+        str_rep = [self.classname, self.module_path, f"attrs: ['{",".join(self.attrs)}']",
                    f"req_attrs: ['{",".join(self.req_attrs)}']", f"children: ['{",".join(self.children)}']",
-                   f"req_children: ['{",".join(self.req_children)}']"]
+                   f"req_children: ['{",".join(self.req_children)}']",]
         return ", ".join(str_rep)
 
 
@@ -78,7 +77,7 @@ def import_class(classinfo: XMLInfo):
 
 
 
-class XMLSerializable:
+class XMLSerializable(ABC):
     """
     An abstract base class for objects that can be serialized to XML.
 
@@ -86,12 +85,24 @@ class XMLSerializable:
     `lxml.etree.Element` object representing the object's XML structure.
     """
     def __init__(self, *args, **kwargs) -> None:
-        if "info" not in kwargs:
+
+        if not "tag" in kwargs:
+            raise ValueError(f"Cannot map XML without tag. Attempted to construct with args: {args}, kwargs: {kwargs}")
+        if not "info" in kwargs:
             raise ValueError(f"Cannot serialize XML without XMLInfo. Attempted to construct with args: {args}, kwargs: {kwargs}")
-        self.info = kwargs["info"]
-        XMLInfo.update_registry(self.info.tag, self.info)
+
+        # take the info out of kwargs
+        info = kwargs.pop("info")
+        # set all my properties, including 'tag'
         self.__dict__.update(kwargs)
         self.children : Tuple[type(XMLSerializable), ...] = args
+
+        # double check to make sure tag exists
+        if not hasattr(self, "tag"):
+            raise ValueError(f"Received tag {self["tag"]} but unable to locate it {args}, kwargs: {kwargs}")
+
+        # update the registry to point to the provided XMLInfo object for the given tag
+        XMLInfo.update_registry(self["tag"], info)
 
     def __getitem__(self, item):
         return self.__dict__.get(item)
@@ -99,50 +110,114 @@ class XMLSerializable:
     def __setitem__(self, key, value):
         self.__dict__[key] = value
 
-    def to_xml(self) -> etree.Element:
-        element = etree.Element(self.info.tag)
-        # begin by setting the tag
-        element.tag = self.info.tag
-        element.text = self["text"] if self["text"] is not None else None
+    @classmethod
+    def to_expr(cls, expr_type: Optional[Literal["DNF", "CNF"]] = "DNF"):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def set_tag(cls):
+        pass
+
+    # @classmethod
+    # def to_xml(self) -> etree.Element:
+    #     element = etree.Element(self.info.tag)
+    #     # begin by setting the tag
+    #     element.tag = self.info.tag
+    #     element.text = self["text"] if self["text"] is not None else None
+    #
+    #     # then, set all the required attrs, defaulting to an empty string if None
+    #     for key in self.info.req_attrs:
+    #         value = self.__dict__.get(key, "")
+    #         element.set(key, value)
+    #
+    #     # next, for all the optional attrs, only write the keys if not None
+    #     for key in self.info.attrs.difference(self.info.req_attrs):
+    #         value = self.__dict__.get(key)
+    #         if value is not None:
+    #             element.set(key, value)
+    #
+    #     # finally, do this recursively for all the children
+    #     for child in self.children:
+    #         element.append(child.to_xml())
+    #
+    #     return element
+
+    def to_xml(self, tag: Optional[str] = None) -> etree.Element:
+        tag_to_use = tag if tag is not None and isinstance(tag, str) and tag != "" else self["tag"]
+        info: XMLInfo = XMLInfo.get(tag_to_use, None)
+        if info is None:
+            raise ValueError(f"Cannot build xml from unregistered tag {tag} for object {self}")
+
+        element = etree.Element(tag_to_use)
+        # begin by setting the tag and text
+        element.tag = tag_to_use
+        element.text = getattr(self, "text", None)
 
         # then, set all the required attrs, defaulting to an empty string if None
-        for key in self.info.req_attrs:
+        for key in info.req_attrs:
             value = self.__dict__.get(key, "")
             element.set(key, value)
 
         # next, for all the optional attrs, only write the keys if not None
-        for key in self.info.attrs.difference(self.info.req_attrs):
-            value = self.__dict__.get(key)
+        for key in info.attrs.difference(info.req_attrs):
+            value = self.__dict__.get(key, None)
             if value is not None:
                 element.set(key, value)
 
-        # finally, do this recursively for all the children
-        for child in self.children:
-            element.append(child.to_xml())
+        if hasattr(self, "children"):
+            # finally, do this recursively for all the children
+            for child in self.children:
+                element.append(child.to_xml())
 
         return element
 
+    # @classmethod
+    # def my_method(cls):
+    #     """Abstract class method that must be implemented by all subclasses."""
+    #     pass
+
     def __str__(self) -> str:
         str_rep = [
-            f"[{self.info.tag}",
+            f"({self["tag"]}:",
         ]
 
-        # then, set all the required attrs, defaulting to an empty string if None
-        for key in self.info.req_attrs:
+        info: XMLInfo = XMLInfo.get(self["tag"], None)
+        attrs: Set[str] = info.attrs if info is not None else set()
+        req_attrs: Set[str] = info.req_attrs if info is not None else set()
+
+        req_attrs_rep = ["req_attrs:["]
+        # get all the required attrs, defaulting to an empty string if None
+        for key in req_attrs:
             value = self.__dict__.get(key, "")
-            str_rep.append(f"{key}='{value}'")
+            req_attrs_rep.append(f"{key}='{value}'")
+        req_attrs_rep.append("]")
+        str_rep.append(" ".join(req_attrs_rep))
 
         # next, for all the optional attrs, only write the keys if not None
-        for key in self.info.attrs.difference(self.info.req_attrs):
-            value = self.__dict__.get(key)
+        attrs_rep = ["attrs:["]
+        for key in (attrs - req_attrs):
+            value = self.__dict__.get(key, None)
+            if value is not None:
+                attrs_rep.append(f"{key}='{value}'")
+        attrs_rep.append("]")
+        str_rep.append(" ".join(attrs_rep))
+
+        # finally, collect all the other items
+        for key in (self.__dict__.keys() - attrs - req_attrs - {'children'}):
+            value = self.__dict__.get(key, None)
             if value is not None:
                 str_rep.append(f"{key}='{value}'")
 
-        str_rep.append("]")
-        str_rep.append(self["text"] if self["text"] is not None else None)
+        # add the text object and close the starting tag
+        str_rep.append(f"text={self["text"]})" if self["text"] is not None else ")")
+
+        ## iterate over all children
         for child in self.children:
             str_rep.append(child)
-        str_rep.append(f"[/{self.info.tag}]")
+
+        ## close the tag
+        str_rep.append(f"(/{self["tag"]})")
         return " ".join(str_rep)
 
     @staticmethod
@@ -170,8 +245,8 @@ class XMLSerializable:
 
     @classmethod
     def validate(cls, instance: 'XMLSerializable'):
-        if instance.info is None:
-            raise ValueError("XMLSerializable can never have an empty info attribute")
+        #if instance.info is None:
+        #    raise ValueError("XMLSerializable can never have an empty info attribute")
         return instance
 
     @classmethod
@@ -181,8 +256,8 @@ class XMLSerializable:
 
         info: XMLInfo = XMLInfo.get(root.tag)
 
-        if root.tag != info.tag:
-            raise ParserError(f"Parsed element {root.tag} is not a {info.tag}")
+        # if root.tag != info.tag:
+        #     raise ParserError(f"Parsed element {root.tag} is not a {info.tag}")
 
         attributes = set(root.attrib.keys())
         required_attributes = info.req_attrs

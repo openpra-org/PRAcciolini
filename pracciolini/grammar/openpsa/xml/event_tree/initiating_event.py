@@ -4,7 +4,6 @@ from pracciolini.grammar.openpsa.xml.serializable import XMLInfo
 
 class InitiatingEventDefinition(EventDefinition):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs["info"] = XMLInfo(tag="define-initiating-event",
-                                 class_type=self,
-                                 attrs={"event-tree"})
+        kwargs["info"] = XMLInfo(class_type=self, attrs={"event-tree"})
+        kwargs["tag"] = "define-initiating-event"
         super().__init__(*args, **kwargs)

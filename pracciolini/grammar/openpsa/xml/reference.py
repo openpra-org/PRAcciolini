@@ -32,3 +32,11 @@ class HouseEventReference(NamedEvent):
         kwargs["info"] = XMLInfo(tag="house-event",
                                  class_type=self)
         super().__init__(*args, **kwargs)
+
+
+class GenericEventReference(NamedEvent):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="event",
+                                 attrs={"type"},
+                                 class_type=self)
+        super().__init__(*args, **kwargs)

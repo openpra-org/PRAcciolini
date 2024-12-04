@@ -1,8 +1,23 @@
 from typing import Set
 
-
 class Meta:
     pass
+
+class ModelDataDefinitionsMeta(Meta):
+    permitted_tags: Set[str] = {
+        "define-basic-event",
+        "define-house-event",
+        "define-parameter",
+        "define-CCF-group",
+        "define-component"
+    }
+
+class EventDefinitionsMeta(Meta):
+    permitted_tags: Set[str] = {
+        "define-gate",
+        "define-extern-function",
+        "define-extern-library",
+    }.union(ModelDataDefinitionsMeta.permitted_tags)
 
 
 class DistributionMeta(Meta):
@@ -33,16 +48,22 @@ class ConstantsMeta(Meta):
 class ArithmeticMeta(Meta):
     permitted_tags: Set[str] = {
         "add",
-        "neg",
         "sub",
         "mul",
         "div",
+        "abs",
+        "sin",
+        "cos",
+        "sinh",
+        "cosh",
+        "neg",
     }
 
 
 class LogicalUnaryMeta(Meta):
     permitted_tags: Set[str] = {
         "not",
+        "iff",
     }
 
 
@@ -51,6 +72,10 @@ class LogicalMultiplicativeMeta(Meta):
         "and",
         "or",
         "xor",
+        "nor",
+        "xnor",
+        "nand",
+        "imply",
         "atleast",
         "cardinality",
     }
@@ -69,6 +94,7 @@ class ReferenceMeta(Meta):
         "extern-function",
         "basic-event",
         "house-event",
+        "event",
         "gate",
     }
 

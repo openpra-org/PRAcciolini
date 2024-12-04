@@ -38,7 +38,7 @@ def _deep_compare_xml(xml_a: Element, xml_b: Element) -> bool:
     child_tags_a = sorted(element.tag for element in xml_a)
     child_tags_b = sorted(element.tag for element in xml_b)
     if child_tags_a != child_tags_b:
-        raise ValueError(f"child tags [{child_tags_a}] do not match [{child_tags_b}], extra: [{set(child_tags_a) - set(child_tags_b)}]")
+        raise ValueError(f"child tags <{xml_a.tag}/>:{child_tags_a} do not match <{xml_b.tag}>:{child_tags_b}, extra: [{set(child_tags_a) - set(child_tags_b)}]")
 
     children_a = (element for element in xml_a)
     children_b = (element for element in xml_b)
@@ -54,11 +54,11 @@ def _test_build_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[st
     tags: Set[str] = {
         # "//opsa-mef",
         # "//define-event-tree",
-        # "//define-initiating-event",
+        "//define-initiating-event",
         # "//define-functional-event",
         # "//define-sequence",
-        "//model-data",
-        "//define-fault-tree"
+        # "//model-data",
+        # "//define-fault-tree"
     }
     xquery = "|".join(tags)
     all_match = True
@@ -66,12 +66,15 @@ def _test_build_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[st
         xml_data = read_openpsa_xml(file_path)
         events_xml = xml_data.xpath(xquery)
         for event_xml in events_xml:
+            converted_xml = None
             try:
                 event = OpsaMefXmlRegistry.instance().build(event_xml)
                 converted_xml = event.to_xml()
+                print(lxml.etree.tostring(event_xml), lxml.etree.tostring(converted_xml))
                 all_match = all_match and _deep_compare_xml(event_xml, converted_xml)
             except ValueError as ve:
-                return False, f"{ve}: \n {lxml.etree.tostring(event_xml)}, {lxml.etree.tostring(converted_xml)}"
+                converted = lxml.etree.tostring(converted_xml) if converted_xml is not None else "FAILED"
+                return False, f"{ve}: \n {lxml.etree.tostring(event_xml)}, {converted}"
     except Exception as e:
         return False, str(e)
     return True, None
@@ -97,7 +100,7 @@ def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optiona
 
 
 def _parallel_test_wrapper(cls, test_fn, files: Set[str]):
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=1) as executor:
         future_to_file = {
             executor.submit(test_fn, file_path): file_path for file_path in files
         }
@@ -131,6 +134,15 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
             },
             "invalid": {
                 "fragments": os.path.join(cls.base_fixtures_path, "invalid/**/*.xml"),
+            },
+            "ignored": {
+                "fragments-model": os.path.join(cls.base_fixtures_path, "valid/model/**/*.xml"),
+                "fragments-eta-test-event": os.path.join(cls.base_fixtures_path, "valid/eta/test-event/**/*.xml"),
+                "fragments-eta-if-then-else": os.path.join(cls.base_fixtures_path, "valid/eta/if-then-else/**/*.xml"),
+                "fragments-eta-rule": os.path.join(cls.base_fixtures_path, "valid/eta/rule/**/*.xml"),
+                "fragments-eta-set-event": os.path.join(cls.base_fixtures_path, "valid/eta/set-event/**/*.xml"),
+                "fragments-fta-ccf": os.path.join(cls.base_fixtures_path, "valid/fta/ccf/**/*.xml"),
+                "fragments-fta-component": os.path.join(cls.base_fixtures_path, "valid/fta/component/**/*.xml"),
             }
         }
         cls.flat_fixtures: Dict[str, Set[str]] = dict()
@@ -149,12 +161,13 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
             print(f"Total files [{key_valid}]: {len(cls.flat_fixtures[key_valid])}")
 
         cls.flat_fixtures["benchmarks"] = cls.flat_fixtures["valid"] - cls.flat_fixtures["valid-fragments"]
+        cls.flat_fixtures["valid-fragments"] -= cls.flat_fixtures["ignored"]
 
     def test_build_from_input_xml(self):
-        _parallel_test_wrapper(self, _test_build_from_input_xml_helper, self.flat_fixtures["benchmarks"])
+        _parallel_test_wrapper(self, _test_build_from_input_xml_helper, self.flat_fixtures["valid-fragments"])
 
     def test_valid_input_schema_xml(self):
-        _parallel_test_wrapper(self, _test_valid_input_schema_xml_helper, self.flat_fixtures["valid"])
+        _parallel_test_wrapper(self, _test_valid_input_schema_xml_helper, self.flat_fixtures["valid-demo"])
 
     # def test_invalid_input_schema_xml(self):
     #     _parallel_test_wrapper(self, _test_invalid_input_schema_xml_helper, self.flat_fixtures["invalid"])

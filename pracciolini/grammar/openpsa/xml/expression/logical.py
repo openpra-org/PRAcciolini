@@ -1,20 +1,5 @@
-from pracciolini.grammar.openpsa.xml.define_event import EventDefinition, NamedEvent
 from pracciolini.grammar.openpsa.xml.expression.meta import ExpressionMeta
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo, XMLSerializable
-
-
-class RuleDefinition(EventDefinition):
-    def __init__(self, *args, **kwargs) -> None:
-        kwargs["info"] = XMLInfo(tag="define-rule",
-                                 class_type=self)
-        super().__init__(*args, **kwargs)
-
-
-class RuleReference(NamedEvent):
-    def __init__(self, *args, **kwargs) -> None:
-        kwargs["info"] = XMLInfo(tag="rule",
-                                 class_type=self)
-        super().__init__(*args, **kwargs)
 
 
 class CardinalityExpression(XMLSerializable):
@@ -37,6 +22,14 @@ class AtleastExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
+class ImplyExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="imply",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
 class OrExpression(XMLSerializable):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="or",
@@ -53,9 +46,49 @@ class AndExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
+class NandExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="nand",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
+class NorExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="nor",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
+class XnorExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="xnor",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
+class XorExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="xor",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
 class NotExpression(XMLSerializable):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="not",
+                                 children=ExpressionMeta.permitted_tags,
+                                 class_type=self)
+        super().__init__(*args, **kwargs)
+
+
+class IffExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs["info"] = XMLInfo(tag="iff",
                                  children=ExpressionMeta.permitted_tags,
                                  class_type=self)
         super().__init__(*args, **kwargs)

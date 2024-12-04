@@ -12,15 +12,17 @@ from pracciolini.grammar.openpsa.xml.expression.collect import CollectExpression
 from pracciolini.grammar.openpsa.xml.expression.constants import ConstantExpression, ConstantPi,  FloatExpression, IntegerExpression, BoolExpression
 from pracciolini.grammar.openpsa.xml.define_event import BasicEventDefinition, HouseEventDefinition, \
     ParameterDefinition
-from pracciolini.grammar.openpsa.xml.expression.arithmetic import ArithmeticAddExpression, ArithmeticNegativeExpression, ArthmeticSubtractExpression, ArthmeticMultiplyExpression, \
-    ArthmeticDivideExpression
-from pracciolini.grammar.openpsa.xml.expression.logical import RuleDefinition, RuleReference, CardinalityExpression, \
-    AtleastExpression, NotExpression, OrExpression, AndExpression
+from pracciolini.grammar.openpsa.xml.expression.arithmetic import ArithmeticExpression
+from pracciolini.grammar.openpsa.xml.expression.logical import CardinalityExpression, \
+    AtleastExpression, NotExpression, OrExpression, AndExpression, IffExpression, NandExpression, NorExpression, \
+    XnorExpression, XorExpression, ImplyExpression
 from pracciolini.grammar.openpsa.xml.expression.nonparam_dist import HistogramBin, Histogram
 from pracciolini.grammar.openpsa.xml.expression.param_dist import WeibullExpression, LognormalDeviateExpression, \
     UniformDeviateExpression, ExponentialExpression, GLMExpression, NormalDeviateExpression, \
-    GammaDeviateExpression, BetaDeviateExpression, PeriodicTestExpression
-from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference
+    GammaDeviateExpression, BetaDeviateExpression
+from pracciolini.grammar.openpsa.xml.expression.survivability import PeriodicTestExpression, HypothesisTestExpression
+from pracciolini.grammar.openpsa.xml.model_data.component import ComponentDefinition
+from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference, GenericEventReference
 from pracciolini.grammar.openpsa.xml.fault_tree import FaultTreeDefinition, GateDefinition, GateReference
 from pracciolini.grammar.openpsa.xml.identifier import Label
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
@@ -28,6 +30,8 @@ from pracciolini.grammar.openpsa.xml.openpsa_mef import OpsaMef
 from pracciolini.grammar.openpsa.xml.reference import SystemMissionTimeParameterReference, ExternalFunctionReference, ParameterReference
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo, XMLSerializable
 from pracciolini.grammar.openpsa.xml.singleton import Singleton
+from pracciolini.grammar.openpsa.xml.substitution import SubstitutionDefinition, SubstitutionSourceDefinition, \
+    SubstitutionTargetDefinition
 
 
 @Singleton
@@ -36,85 +40,102 @@ class OpsaMefXmlRegistry:
         super().__init__(*args, **kwargs)
 
         ## root
-        XMLInfo.register(OpsaMef)
-
-        ## event tree
-        XMLInfo.register(EventTreeDefinition)
-        XMLInfo.register(EventTreeReference)
+        # XMLInfo.register(OpsaMef)
+        #
+        # ## event tree
+        # XMLInfo.register(EventTreeDefinition)
+        # XMLInfo.register(EventTreeReference)
         XMLInfo.register(InitiatingEventDefinition)
-        XMLInfo.register(FunctionalEventDefinition)
-        XMLInfo.register(SequenceDefinition)
-        XMLInfo.register(SequenceReference)
-        XMLInfo.register(CollectExpression)
-        XMLInfo.register(InitialStateDefinition)
-        XMLInfo.register(ForkDefinition)
-        XMLInfo.register(PathDefinition)
-        XMLInfo.register(CollectFormula)
-        XMLInfo.register(BranchDefinition)
-        XMLInfo.register(BranchReference)
-
-        ## fault treee
-        XMLInfo.register(FaultTreeDefinition)
-        XMLInfo.register(GateDefinition)
-
-        ## higher-level
-        XMLInfo.register(ModelData)
-
-        ## definitions
-        XMLInfo.register(BasicEventDefinition)
-        XMLInfo.register(HouseEventDefinition)
-        XMLInfo.register(ParameterDefinition)
-
-        ## identifiers
-        XMLInfo.register(Attributes)
-        XMLInfo.register(Attribute)
-        XMLInfo.register(Label)
-
-        ## references
-        XMLInfo.register(SystemMissionTimeParameterReference)
-        XMLInfo.register(ExternalFunctionReference)
-        XMLInfo.register(ParameterReference)
-        XMLInfo.register(GateReference)
-        XMLInfo.register(BasicEventReference)
-        XMLInfo.register(HouseEventReference)
-
-        ## constants
-        XMLInfo.register(ConstantExpression)
-        XMLInfo.register(FloatExpression)
-        XMLInfo.register(IntegerExpression)
-        XMLInfo.register(BoolExpression)
-        XMLInfo.register(ConstantPi)
-
-        ## distributions
-        XMLInfo.register(WeibullExpression)
-        XMLInfo.register(LognormalDeviateExpression)
-        XMLInfo.register(NormalDeviateExpression)
-        XMLInfo.register(BetaDeviateExpression)
-        XMLInfo.register(GammaDeviateExpression)
-        XMLInfo.register(UniformDeviateExpression)
-        XMLInfo.register(ExponentialExpression)
-        XMLInfo.register(GLMExpression)
-
-        ## expressions
-        XMLInfo.register(ArithmeticAddExpression)
-        XMLInfo.register(ArithmeticNegativeExpression)
-        XMLInfo.register(ArthmeticSubtractExpression)
-        XMLInfo.register(ArthmeticMultiplyExpression)
-        XMLInfo.register(ArthmeticDivideExpression)
-
-        ## logical
-        XMLInfo.register(RuleDefinition)
-        XMLInfo.register(RuleReference)
-        XMLInfo.register(CardinalityExpression)
-        XMLInfo.register(AtleastExpression)
-        XMLInfo.register(NotExpression)
-        XMLInfo.register(OrExpression)
-        XMLInfo.register(AndExpression)
-
-        ## exotic
-        XMLInfo.register(PeriodicTestExpression)
-        XMLInfo.register(HistogramBin)
-        XMLInfo.register(Histogram)
+        # XMLInfo.register(FunctionalEventDefinition)
+        # XMLInfo.register(SequenceDefinition)
+        # XMLInfo.register(SequenceReference)
+        # XMLInfo.register(CollectExpression)
+        # XMLInfo.register(InitialStateDefinition)
+        # XMLInfo.register(ForkDefinition)
+        # XMLInfo.register(PathDefinition)
+        # XMLInfo.register(CollectFormula)
+        # XMLInfo.register(BranchDefinition)
+        # XMLInfo.register(BranchReference)
+        #
+        # ## fault tree
+        # XMLInfo.register(FaultTreeDefinition)
+        # XMLInfo.register(GateDefinition)
+        #
+        # ## higher-level
+        # XMLInfo.register(ModelData)
+        # XMLInfo.register(ComponentDefinition)
+        #
+        # ## definitions
+        # XMLInfo.register(BasicEventDefinition)
+        # XMLInfo.register(HouseEventDefinition)
+        # XMLInfo.register(ParameterDefinition)
+        #
+        # ## identifiers
+        # XMLInfo.register(Attributes)
+        # XMLInfo.register(Attribute)
+        # XMLInfo.register(Label)
+        #
+        # ## references
+        # XMLInfo.register(SystemMissionTimeParameterReference)
+        # XMLInfo.register(ExternalFunctionReference)
+        # XMLInfo.register(ParameterReference)
+        # XMLInfo.register(GateReference)
+        # XMLInfo.register(BasicEventReference)
+        # XMLInfo.register(HouseEventReference)
+        # XMLInfo.register(GenericEventReference)
+        #
+        # ## constants
+        # XMLInfo.register(ConstantExpression)
+        # XMLInfo.register(FloatExpression)
+        # XMLInfo.register(IntegerExpression)
+        # XMLInfo.register(BoolExpression)
+        # XMLInfo.register(ConstantPi)
+        #
+        # ## distributions
+        # XMLInfo.register(WeibullExpression)
+        # XMLInfo.register(LognormalDeviateExpression)
+        # XMLInfo.register(NormalDeviateExpression)
+        # XMLInfo.register(BetaDeviateExpression)
+        # XMLInfo.register(GammaDeviateExpression)
+        # XMLInfo.register(UniformDeviateExpression)
+        # XMLInfo.register(ExponentialExpression)
+        # XMLInfo.register(GLMExpression)
+        #
+        # ## expressions
+        # XMLInfo.register(ArithmeticExpression)
+        # # XMLInfo.register(ArithmeticAddExpression)
+        # # XMLInfo.register(ArithmeticNegativeExpression)
+        # # XMLInfo.register(ArthmeticSubtractExpression)
+        # # XMLInfo.register(ArthmeticMultiplyExpression)
+        # # XMLInfo.register(ArthmeticDivideExpression)
+        #
+        # ## logical multiplicative
+        # XMLInfo.register(CardinalityExpression)
+        # XMLInfo.register(AtleastExpression)
+        # XMLInfo.register(ImplyExpression)
+        # XMLInfo.register(OrExpression)
+        # XMLInfo.register(AndExpression)
+        # XMLInfo.register(NandExpression)
+        # XMLInfo.register(NorExpression)
+        # XMLInfo.register(XnorExpression)
+        # XMLInfo.register(XorExpression)
+        # # logical unary
+        # XMLInfo.register(NotExpression)
+        # XMLInfo.register(IffExpression)
+        #
+        # ## exotic
+        # XMLInfo.register(HistogramBin)
+        # XMLInfo.register(Histogram)
+        #
+        # ## substitutions
+        # XMLInfo.register(SubstitutionDefinition)
+        # XMLInfo.register(SubstitutionSourceDefinition)
+        # XMLInfo.register(SubstitutionTargetDefinition)
+        #
+        #
+        # ## statistical tests
+        # XMLInfo.register(PeriodicTestExpression)
+        # XMLInfo.register(HypothesisTestExpression)
 
     @staticmethod
     def build(root: Element):

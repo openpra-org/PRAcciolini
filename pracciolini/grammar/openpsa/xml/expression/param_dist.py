@@ -189,9 +189,3 @@ class ExponentialExpression(SystemMissionTimeDependent):
                                  class_type=self,
                                  children={"float", "parameter"})
         super().__init__(*args, **kwargs)
-
-
-class PeriodicTestExpression(SystemMissionTimeDependent):
-    def __init__(self, *args, **kwargs) -> None:
-        kwargs["info"] = XMLInfo(tag="periodic-test", class_type=self, children={"float", "bool"}, req_children={"float"})
-        super().__init__(*args, **kwargs)
