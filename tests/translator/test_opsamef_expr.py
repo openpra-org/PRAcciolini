@@ -1,67 +1,21 @@
 import os
-from typing import Dict, Tuple, Optional, Set
 import unittest
+from typing import Dict, Set, Tuple, Optional
 
-import lxml
-
-from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
+from pracciolini.translator.opsamef_expr.opsamef_expr import opsamef_xml_to_expr
 from pracciolini.utils.file_ops import FileOps
-from pracciolini.grammar.openpsa.validate import read_openpsa_xml, validate_openpsa_input_xml_file
-from pracciolini.utils.xml import deep_compare_xml
 from tests import _parallel_test_wrapper
 
 
-def _test_build_from_input_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
-    tags: Set[str] = {
-        "//opsa-mef",
-    }
-    xquery = "|".join(tags)
-    all_match = True
-    try:
-        xml_data = read_openpsa_xml(file_path)
-        events_xml = xml_data.xpath(xquery)
-        for event_xml in events_xml:
-            converted_xml = None
-            try:
-                event = OpsaMefXmlRegistry.instance().build(event_xml)
-                converted_xml = event.to_xml()
-                #print(lxml.etree.tostring(event_xml), lxml.etree.tostring(converted_xml))
-                all_match = all_match and deep_compare_xml(event_xml, converted_xml)
-            except ValueError as ve:
-                converted = lxml.etree.tostring(converted_xml) if converted_xml is not None else "FAILED"
-                return False, f"{ve}: \n {lxml.etree.tostring(event_xml)}, {converted}"
-    except Exception as e:
-        return False, str(e)
-    return True, None
+class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
 
-def _test_valid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
-    try:
-        is_valid = validate_openpsa_input_xml_file(file_path)
-        if not is_valid:
-            return False, f"File {file_path} failed schema validation"
-        return True, None
-    except Exception as e:
-        return False, str(e)
-
-
-def _test_invalid_input_schema_xml_helper(file_path: str) -> Tuple[bool, Optional[str]]:
-    try:
-        is_valid = validate_openpsa_input_xml_file(file_path)
-        if not is_valid:
-            return True, None
-        return False, f"File {file_path} unexpectedly passed schema validation"
-    except Exception as e:
-        return False, str(e)
-
-
-class TestBuildOpenPSAMefInputXML(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Get the directory of the current script
         cls.current_dir = os.path.dirname(os.path.abspath(__file__))
         # Define the base path for fixtures
         cls.base_fixtures_path = os.path.normpath(
-            os.path.join(cls.current_dir, '../../../fixtures/openpsa/xml/opsa-mef')
+            os.path.join(cls.current_dir, '../fixtures/openpsa/xml/opsa-mef')
         )
         cls.fixture_directories: Dict[str, Dict[str, str]] = {
             "valid": {
@@ -100,18 +54,19 @@ class TestBuildOpenPSAMefInputXML(unittest.TestCase):
 
             print(f"Total files [{key_valid}]: {len(cls.flat_fixtures[key_valid])}")
 
-        cls.flat_fixtures["benchmarks"] = cls.flat_fixtures["valid"] - cls.flat_fixtures["valid-fragments"]
         cls.flat_fixtures["valid-fragments"] -= cls.flat_fixtures["ignored"]
         cls.flat_fixtures["valid"] -= cls.flat_fixtures["ignored"]
 
-    def test_build_from_input_xml(self):
-        _parallel_test_wrapper(self, _test_build_from_input_xml_helper, self.flat_fixtures["valid"])
 
-    def test_valid_input_schema_xml(self):
-        _parallel_test_wrapper(self, _test_valid_input_schema_xml_helper, self.flat_fixtures["valid"])
+    @staticmethod
+    def _test_translate_demo(file_path: str) -> Tuple[bool, Optional[str]]:
+        try:
+            return opsamef_xml_to_expr(file_path), None
+        except Exception as e:
+            return False, str(e)
 
-    # def test_invalid_input_schema_xml(self):
-    #     _parallel_test_wrapper(self, _test_invalid_input_schema_xml_helper, self.flat_fixtures["invalid"])
+    def test_translate_demo(self):
+        _parallel_test_wrapper(self, self._test_translate_demo, self.flat_fixtures["valid"])
 
 
 if __name__ == '__main__':

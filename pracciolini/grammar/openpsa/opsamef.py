@@ -8,19 +8,22 @@ from pracciolini.grammar.openpsa.xml.event_tree.functional_event import Function
 from pracciolini.grammar.openpsa.xml.event_tree.initial_state import InitialStateDefinition
 from pracciolini.grammar.openpsa.xml.event_tree.initiating_event import InitiatingEventDefinition
 from pracciolini.grammar.openpsa.xml.event_tree.sequence import SequenceDefinition, SequenceReference
+from pracciolini.grammar.openpsa.xml.expression.arithmetic import ArithmeticAddExpression, ArithmeticNegativeExpression, \
+    ArthmeticSubtractExpression, ArthmeticMultiplyExpression, ArthmeticDivideExpression
 from pracciolini.grammar.openpsa.xml.expression.collect import CollectExpression, CollectFormula
 from pracciolini.grammar.openpsa.xml.expression.constants import ConstantExpression, ConstantPi,  FloatExpression, IntegerExpression, BoolExpression
 from pracciolini.grammar.openpsa.xml.define_event import BasicEventDefinition, HouseEventDefinition, \
     ParameterDefinition
-from pracciolini.grammar.openpsa.xml.expression.arithmetic import ArithmeticAddExpression, ArithmeticNegativeExpression, ArthmeticSubtractExpression, ArthmeticMultiplyExpression, \
-    ArthmeticDivideExpression
-from pracciolini.grammar.openpsa.xml.expression.logical import RuleDefinition, RuleReference, CardinalityExpression, \
-    AtleastExpression, NotExpression
+from pracciolini.grammar.openpsa.xml.expression.logical import CardinalityExpression, \
+    AtleastExpression, NotExpression, OrExpression, AndExpression, IffExpression, NandExpression, NorExpression, \
+    XnorExpression, XorExpression, ImplyExpression
 from pracciolini.grammar.openpsa.xml.expression.nonparam_dist import HistogramBin, Histogram
 from pracciolini.grammar.openpsa.xml.expression.param_dist import WeibullExpression, LognormalDeviateExpression, \
     UniformDeviateExpression, ExponentialExpression, GLMExpression, NormalDeviateExpression, \
-    GammaDeviateExpression, BetaDeviateExpression, PeriodicTestExpression
-from pracciolini.grammar.openpsa.xml.fault_tree.event_reference import BasicEventReference, GateReference
+    GammaDeviateExpression, BetaDeviateExpression
+from pracciolini.grammar.openpsa.xml.expression.survivability import PeriodicTestExpression
+from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference, GenericEventReference
+from pracciolini.grammar.openpsa.xml.fault_tree import FaultTreeDefinition, GateDefinition, GateReference
 from pracciolini.grammar.openpsa.xml.identifier import Label
 from pracciolini.grammar.openpsa.xml.model_data.model_data import ModelData
 from pracciolini.grammar.openpsa.xml.openpsa_mef import OpsaMef
@@ -52,6 +55,9 @@ class OpsaMefXmlRegistry:
         XMLInfo.register(BranchDefinition)
         XMLInfo.register(BranchReference)
 
+        ## fault tree
+        XMLInfo.register(FaultTreeDefinition)
+        XMLInfo.register(GateDefinition)
 
         ## higher-level
         XMLInfo.register(ModelData)
@@ -72,6 +78,8 @@ class OpsaMefXmlRegistry:
         XMLInfo.register(ParameterReference)
         XMLInfo.register(GateReference)
         XMLInfo.register(BasicEventReference)
+        XMLInfo.register(HouseEventReference)
+        XMLInfo.register(GenericEventReference)
 
         ## constants
         XMLInfo.register(ConstantExpression)
@@ -98,11 +106,17 @@ class OpsaMefXmlRegistry:
         XMLInfo.register(ArthmeticDivideExpression)
 
         ## logical
-        XMLInfo.register(RuleDefinition)
-        XMLInfo.register(RuleReference)
         XMLInfo.register(CardinalityExpression)
         XMLInfo.register(AtleastExpression)
+        XMLInfo.register(ImplyExpression)
         XMLInfo.register(NotExpression)
+        XMLInfo.register(IffExpression)
+        XMLInfo.register(OrExpression)
+        XMLInfo.register(AndExpression)
+        XMLInfo.register(NandExpression)
+        XMLInfo.register(NorExpression)
+        XMLInfo.register(XnorExpression)
+        XMLInfo.register(XorExpression)
 
         ## exotic
         XMLInfo.register(PeriodicTestExpression)

@@ -6,5 +6,5 @@ class OpsaMef(XMLSerializable):
         kwargs["info"] = XMLInfo(tag="opsa-mef",
                                  class_type=self,
                                  attrs={"name"},
-                                 children={"define-initiating-event", "define-event-tree", "define-rule", "model-data"})
+                                 children={"define-initiating-event", "define-event-tree", "define-fault-tree", "define-rule", "model-data"})
         super().__init__(*args, **kwargs)

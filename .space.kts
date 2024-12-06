@@ -50,7 +50,7 @@ job("pracciolini") {
             shellScript("pytest") {
                 interpreter = "/bin/bash"
                 content = """
-                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest -n 2
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest -n 4
                           """
             }
         }
@@ -59,7 +59,7 @@ job("pracciolini") {
             shellScript("pytest --cov") {
                 interpreter = "/bin/bash"
                 content = """
-                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest --cov -n 2
+                          docker run --rm "$remote:ci-{{ run:number }}-{{ branchSlug }}" pytest --cov -n 4
                           """
             }
         }

@@ -8,3 +8,15 @@ class InitiatingEventDefinition(EventDefinition):
                                  class_type=self,
                                  attrs={"event-tree"})
         super().__init__(*args, **kwargs)
+
+    @property
+    def value(self) -> str:
+        return self["event-tree"]
+
+    @value.setter
+    def value(self, value: str):
+        self["event-tree"] = value
+
+    @value.deleter
+    def value(self):
+        self["event-tree"] = None

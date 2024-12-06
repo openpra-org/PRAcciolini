@@ -1,7 +1,4 @@
 <?xml version="1.0"?>
-<!-- Incorrect input:
-House event tries to define gate.
--->
 <opsa-mef>
     <define-fault-tree name="TwoTrains">
         <define-gate name="TopEvent">

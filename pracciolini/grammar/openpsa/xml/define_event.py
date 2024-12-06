@@ -1,5 +1,6 @@
 from typing import Literal
 
+from pracciolini.grammar.openpsa.xml.expression.constants import FloatExpression, ConstantExpression
 from pracciolini.grammar.openpsa.xml.expression.meta import ExpressionMeta
 from pracciolini.grammar.openpsa.xml.serializable import XMLSerializable, XMLInfo
 
@@ -22,6 +23,27 @@ class EventDefinition(XMLSerializable):
     @role.deleter
     def role(self):
         self["role"] = None
+
+    @property
+    def name(self) -> str:
+        return self["name"]
+
+    @name.setter
+    def name(self, value: str):
+        self["name"] = value
+
+    @name.deleter
+    def name(self):
+        pass
+
+    def __str__(self) -> str:
+        return super().__str__()
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
 
 
 class NamedEvent(XMLSerializable):
@@ -49,6 +71,12 @@ class NamedEvent(XMLSerializable):
             raise ValueError(f"{instance.info.tag} should contain a non-empty name string")
         return instance
 
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
+
 
 
 class BasicEventDefinition(EventDefinition):
@@ -63,6 +91,25 @@ class BasicEventDefinition(EventDefinition):
         super().validate(instance)
         return instance
 
+    @property
+    def value(self):
+        for child in self.children:
+            if isinstance(child, FloatExpression):
+                return child.value
+        return None
+
+    @value.setter
+    def value(self, value):
+        for child in self.children:
+            if isinstance(child, FloatExpression):
+                child.value = value
+
+    @value.deleter
+    def value(self):
+        for child in self.children:
+            if isinstance(child, FloatExpression):
+                child.value = None
+
 
 class HouseEventDefinition(EventDefinition):
     def __init__(self, *args, **kwargs) -> None:
@@ -70,6 +117,25 @@ class HouseEventDefinition(EventDefinition):
                                  class_type=self,
                                  children={"constant"})
         super().__init__(*args, **kwargs)
+
+    @property
+    def value(self):
+        for child in self.children:
+            if isinstance(child, ConstantExpression):
+                return child.value
+        return None
+
+    @value.setter
+    def value(self, value):
+        for child in self.children:
+            if isinstance(child, ConstantExpression):
+                child.value = value
+
+    @value.deleter
+    def value(self):
+        for child in self.children:
+            if isinstance(child, ConstantExpression):
+                child.value = None
 
 
 class ParameterDefinition(EventDefinition):

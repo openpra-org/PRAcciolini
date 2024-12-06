@@ -37,7 +37,8 @@ dependencies = [
     "jsonschema",
     "lxml",
     "networkx",
-    "pandas"
+    "pandas",
+    "pyeda"
 ]
 
 [project.urls]
