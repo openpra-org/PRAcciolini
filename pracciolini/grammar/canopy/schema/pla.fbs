@@ -9,6 +9,86 @@ table PLA {
   num_events_per_product: uint64;
 }
 
+
+
+
+// About endian-ness
+// the address of a multi-byte value is the address of its first byte (the byte with the lowest address);
+// little-endian systems of that type have the property that, for sufficiently low data values, the same value can be
+// read from memory at different lengths without using different addresses (even when alignment restrictions are
+// imposed). For example, a 32-bit memory location with content 4A 00 00 00 can be read at the same address as either
+// 8-bit (value = 4A), 16-bit (004A), 24-bit (00004A), or 32-bit (0000004A), all of which retain the same numeric value.
+
+
+enum OpCode : ubyte {
+    // bitwise   ------------> 0___ ____
+    BITWISE_NOT  = 0x00, // 0b 0000 0000
+    BITWISE_AND  = 0x01, // 0b 0000 0001
+    BITWISE_OR   = 0x02, // 0b 0000 0010
+    BITWISE_XOR  = 0x04, // 0b 0000 0100
+    // negations ------------> ____ 1___
+    BITWISE_NAND = 0x09, // 0b 0000 1001
+    BITWISE_NOR  = 0x0A, // 0b 0000 1010
+    BITWISE_XNOR = 0x0C, // 0b 0000 1100
+
+    // logical   ------------> 1___ ____
+    LOGICAL_NOT  = 0x80, // 0b 1000 0000
+    LOGICAL_AND  = 0x81, // 0b 1000 0001
+    LOGICAL_OR   = 0x82, // 0b 1000 0010
+    LOGICAL_XOR  = 0x84, // 0b 1000 0100
+    // negations ------------> ____ 1___
+    LOGICAL_NAND = 0x89, // 0b 1000 1001
+    LOGICAL_NOR  = 0x8A, // 0b 1000 1010
+    LOGICAL_XNOR = 0x8C, // 0b 1000 1100
+}
+
+enum DataType: ubyte {
+  UINT4  = 0x04, // 0b 0000 0100
+  UINT8  = 0x08, // 0b 0000 1000
+  UINT16 = 0x10, // 0b 0001 0000
+  UINT32 = 0x20, // 0b 0010 0000
+  UINT64 = 0x40, // 0b 0100 0000
+
+  FLOAT16 = 0x90, // 0b 1001 0000
+  FLOAT32 = 0xA0, // 0b 1010 0000
+  FLOAT64 = 0xC0, // 0b 1100 0000
+}
+
+table Tensor {
+  // The tensor shape, assuming rank is always non-null
+  shape:[int64]; // signed int64, -1 represents dynamically computed dimension size, helpful for reduction / broadcast ops
+  type:DataType;
+  // An index that refers to the buffers table at the root of the model. Or,
+  // if there is no data buffer associated (i.e. intermediate results), then
+  // this is 0 (which refers to an always existent empty buffer).
+  //
+  // The data_buffer itself is an opaque container, with the assumption that the
+  // target device is little-endian. In addition, all builtin operators assume
+  // the memory is ordered such that if `shape` is [4, 3, 2], then index
+  // [i, j, k] maps to data_buffer[i*3*2 + j*2 + k].
+  buffer_idx:uint;
+  name:string;
+}
+
+// Table of raw data buffers (used for constant tensors). Referenced by tensors
+// by index. The generous alignment accommodates mmap-friendly data structures.
+table Buffer {
+  data:[ubyte]; //(force_align: 16); 16 * sizeof(byte) = 128 bits
+}
+
+table PLA {
+ tensors : [Tensor];
+ buffers : [Buffer];
+}
+
+// https://oneapi-src.github.io/oneDPL/api_for_sycl_kernels/random.html#random-number-distributions
+enum ProbabilityType {
+
+}
+
+table InputProbabiliyier {
+}
+
 file_identifier "BPLA";
 file_extension "bits";
 root_type PLA;
