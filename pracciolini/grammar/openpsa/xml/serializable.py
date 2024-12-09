@@ -1,5 +1,6 @@
 import inspect
 import logging
+from abc import ABC, abstractmethod
 from typing import Tuple, Set, Dict, Optional, List, Any
 from importlib import import_module
 import lxml
@@ -78,7 +79,7 @@ def import_class(classinfo: XMLInfo):
 
 
 
-class XMLSerializable:
+class XMLSerializable(ABC):
     """
     An abstract base class for objects that can be serialized to XML.
 
@@ -167,6 +168,11 @@ class XMLSerializable:
             raise ParserError(f"parsed event {tag} was not instantiated as requested type {class_info.classname}. It was instantiated as {class_instance.__class__.__name__}.")
 
         return class_instance
+
+    # @abstractmethod
+    def to_expr(self) -> str:
+        return ""
+
 
     @classmethod
     def validate(cls, instance: 'XMLSerializable'):

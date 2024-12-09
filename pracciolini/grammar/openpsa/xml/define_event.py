@@ -6,6 +6,7 @@ from pracciolini.grammar.openpsa.xml.serializable import XMLSerializable, XMLInf
 
 
 class EventDefinition(XMLSerializable):
+
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"].attrs.update({"name", "role"})
         kwargs["info"].req_attrs.add("name")
@@ -45,6 +46,9 @@ class EventDefinition(XMLSerializable):
     def __hash__(self):
         return hash(self.name)
 
+    def to_expr(self) -> str:
+        return self.name
+
 
 class NamedEvent(XMLSerializable):
     def __init__(self, *args, **kwargs) -> None:
@@ -77,6 +81,8 @@ class NamedEvent(XMLSerializable):
     def __hash__(self):
         return hash(self.name)
 
+    def to_expr(self) -> str:
+        return self.name
 
 
 class BasicEventDefinition(EventDefinition):

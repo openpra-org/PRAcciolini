@@ -1,3 +1,6 @@
+from sys import exception
+from typing import Dict
+
 from pracciolini.grammar.openpsa.xml.define_event import EventDefinition, NamedEvent
 from pracciolini.grammar.openpsa.xml.expression.meta import LogicalMeta, ReferenceMeta, ConstantsMeta
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo
@@ -15,6 +18,17 @@ class FaultTreeDefinition(EventDefinition):
         super().validate(instance)
         return instance
 
+    def to_expr(self) -> Dict[str, str]:
+        expr_map: Dict[str, str] = dict()
+        try:
+            for child in self.children:
+                expr_map[child.name] = child.to_expr()
+        except:
+            pass
+        for key, value in expr_map.items():
+            print(key, value)
+        return expr_map
+
 
 class GateDefinition(EventDefinition):
     def __init__(self, *args, **kwargs) -> None:
@@ -27,6 +41,31 @@ class GateDefinition(EventDefinition):
     def validate(cls, instance: 'GateDefinition'):
         super().validate(instance)
         return instance
+
+    def to_expr(self) -> str:
+        try:
+            return (self.children[0]).to_expr()
+        except Exception as e:
+            return f"{self.name} to_expr error: {str(e)}"
+    # @property
+    # def type(self) -> str | None:
+    #     try:
+    #         return self.children[0].tag
+    #     except:
+    #         return None
+    #
+    # @property
+    # def symbol(self) -> str | None:
+    #     try:
+    #         match self.type:
+    #             case "and": return "&"
+    #             case "or": return "|"
+    #             case "not": return "~"
+    #             case "xor": return "^"
+    #             case _: return "?"
+    #     except:
+    #         return "?"
+
 
 
 class GateReference(NamedEvent):

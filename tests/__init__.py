@@ -1,9 +1,9 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Set
+from typing import Set, Optional
 
 
-def _parallel_test_wrapper(cls, test_fn, files: Set[str]):
-    with ProcessPoolExecutor() as executor:
+def _parallel_test_wrapper(cls, test_fn, files: Set[str], max_workers: Optional[int] = None):
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {
             executor.submit(test_fn, file_path): file_path for file_path in files
         }

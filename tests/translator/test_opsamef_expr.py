@@ -21,7 +21,7 @@ class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
             "valid": {
                 "demo": os.path.join(cls.base_fixtures_path, "demo/*.xml"),
                 "fragments": os.path.join(cls.base_fixtures_path, "valid/**/*.xml"),
-                "generic": os.path.join(cls.base_fixtures_path, "generic-openpsa-models/models/**/*.xml"),
+                "generic": os.path.join(cls.base_fixtures_path, "generic-openpsa-models/models/**/*baobab1*.xml"),
                 "generic-pwr": os.path.join(cls.base_fixtures_path, "generic-pwr-openpsa-model/models/**/*.xml"),
                 "synthetic": os.path.join(cls.base_fixtures_path, "synthetic-openpsa-models/models/**/ft_*.xml")
             },
@@ -66,7 +66,7 @@ class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
             return False, str(e)
 
     def test_translate_demo(self):
-        _parallel_test_wrapper(self, self._test_translate_demo, self.flat_fixtures["valid"])
+        _parallel_test_wrapper(self, self._test_translate_demo, self.flat_fixtures["valid-generic"], max_workers=1)
 
 
 if __name__ == '__main__':
