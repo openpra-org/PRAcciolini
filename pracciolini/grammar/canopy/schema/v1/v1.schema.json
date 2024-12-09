@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "definitions": {
+    "TensorType": {
+      "type": "string",
+      "enum": [
+        "UINT32",
+        "UINT4",
+        "UINT8",
+        "UINT16",
+        "UINT64",
+        "FLOAT16",
+        "FLOAT32",
+        "FLOAT64"
+      ]
+    },
+    "OpCode": {
+      "type": "string",
+      "enum": [
+        "BITWISE_NOT",
+        "BITWISE_AND",
+        "BITWISE_OR",
+        "BITWISE_XOR",
+        "BITWISE_K_OF_N",
+        "BITWISE_NAND",
+        "BITWISE_NOR",
+        "BITWISE_XNOR",
+        "BITMASK_ZEROS",
+        "BITMASK_ONES",
+        "BITWISE_CONV_ND",
+        "BITWISE_CONV_1D",
+        "BITWISE_CONV_2D",
+        "BITWISE_FFT_ND",
+        "BITWISE_FFT_1D",
+        "BITWISE_FFT_2D",
+        "LOGICAL_NOT",
+        "LOGICAL_AND",
+        "LOGICAL_OR",
+        "LOGICAL_XOR",
+        "LOGICAL_NAND",
+        "LOGICAL_NOR",
+        "LOGICAL_XNOR",
+        "RESHAPE",
+        "MC_EXPECT_VAL",
+        "MC_VAR_LOSS"
+      ]
+    },
+    "OperatorArgs": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "KofNArgs",
+        "ReshapeArgs",
+        "MonteCarloExpectedValueOptions"
+      ]
+    },
+    "Tensor": {
+      "type": "object",
+      "properties": {
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        },
+        "type": {
+          "$ref": "#/definitions/TensorType"
+        },
+        "buffer_idx": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "KofNArgs": {
+      "type": "object",
+      "properties": {
+        "atleast": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "additionalProperties": false
+    },
+    "MonteCarloExpectedValueOptions": {
+      "type": "object",
+      "properties": {
+        "ci_low": {
+          "type": "number"
+        },
+        "ci_high": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ReshapeArgs": {
+      "type": "object",
+      "properties": {
+        "new_shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Operator": {
+      "type": "object",
+      "properties": {
+        "opcode": {
+          "$ref": "#/definitions/OpCode"
+        },
+        "args_type": {
+          "$ref": "#/definitions/OperatorArgs"
+        },
+        "args": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/KofNArgs"
+            },
+            {
+              "$ref": "#/definitions/ReshapeArgs"
+            },
+            {
+              "$ref": "#/definitions/MonteCarloExpectedValueOptions"
+            }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SubGraph": {
+      "type": "object",
+      "properties": {
+        "tensors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Tensor"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        },
+        "operators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Operator"
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Buffer": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "DAGs": {
+      "type": "object",
+      "properties": {
+        "subgraphs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SubGraph"
+          }
+        },
+        "buffers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Buffer"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$ref": "#/definitions/DAGs"
+}
