@@ -39,7 +39,9 @@ dependencies = [
     "networkx",
     "pandas",
     "pyeda",
-    "tensorflow"
+    "tensorflow",
+    "tensorflow-probability",
+    "tf-keras" # needed by tensorflow-probability
 ]
 
 [project.urls]
