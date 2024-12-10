@@ -38,7 +38,8 @@ dependencies = [
     "lxml",
     "networkx",
     "pandas",
-    "pyeda"
+    "pyeda",
+    "tensorflow"
 ]
 
 [project.urls]

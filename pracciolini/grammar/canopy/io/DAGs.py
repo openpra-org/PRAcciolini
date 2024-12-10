@@ -4,8 +4,8 @@
 
 import flatbuffers
 from flatbuffers.compat import import_numpy
-from canopy.io.Buffer import Buffer
-from canopy.io.SubGraph import SubGraph
+from pracciolini.grammar.canopy.io.Buffer import Buffer
+from pracciolini.grammar.canopy.io.SubGraph import SubGraph
 from typing import Optional
 np = import_numpy()
 

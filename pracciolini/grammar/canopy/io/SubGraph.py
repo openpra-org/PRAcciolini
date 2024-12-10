@@ -4,8 +4,8 @@
 
 import flatbuffers
 from flatbuffers.compat import import_numpy
-from canopy.io.Operator import Operator
-from canopy.io.Tensor import Tensor
+from pracciolini.grammar.canopy.io.Operator import Operator
+from pracciolini.grammar.canopy.io.Tensor import Tensor
 from typing import Optional
 np = import_numpy()
 
