@@ -187,3 +187,8 @@ dist
 
 core.*
 /*venv*/
+
+*.xml
+*.h5
+*.bits
+*.cnpy
