@@ -1,6 +1,6 @@
 import os
 import unittest
-from typing import Dict, Set, Tuple, Optional
+from typing import Dict, Set
 
 from pracciolini.translator.opsamef_canopy.opsamef_to_canopy import opsamef_xml_to_canopy_subgraph
 from pracciolini.utils.file_ops import FileOps
@@ -56,20 +56,11 @@ class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
         cls.flat_fixtures["valid-fragments"] -= cls.flat_fixtures["ignored"]
         cls.flat_fixtures["valid"] -= cls.flat_fixtures["ignored"]
 
-
-    @staticmethod
-    def _test_translate_demo(file_path: str) -> Tuple[bool, Optional[str]]:
-        try:
-            return opsamef_xml_to_canopy_subgraph(file_path), None
-        except Exception as e:
-            return False, str(e)
-
     def test_translate_demo(self):
-        for file_path in self.flat_fixtures["valid-demo"]:
+        for file_path in self.flat_fixtures["valid-generic-pwr"]:
             with self.subTest(file_path=file_path):
                 self.assertTrue(opsamef_xml_to_canopy_subgraph(file_path),
                                 f"File {file_path} should be valid.")
-        #_parallel_test_wrapper(self, self._test_translate_demo, self.flat_fixtures["valid"])
 
 
 if __name__ == '__main__':

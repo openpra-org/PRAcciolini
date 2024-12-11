@@ -1,3 +1,5 @@
+from functools import reduce
+
 import tensorflow as tf
 from typing import List, Optional, Dict, Set
 
@@ -284,7 +286,7 @@ class SubGraph:
         Performs a bitwise operation specified by the opcode on the given tensors and adds it to the subgraph.
 
         Args:
-            opcode (IoOpCode): The opcode of the bitwise operation.
+            opcode (IoOpCode.OpCode): The opcode of the bitwise operation.
             operands (List[Tensor]): List of input tensors.
             name (Optional[str]): Optional name for the operation.
 
@@ -310,9 +312,9 @@ class SubGraph:
                     raise ValueError("BITWISE_NOT operation requires exactly one operand.")
                 tf_output = tf_function(operands[0].tf_tensor)
             else:
-                if len(operands) != 2:
-                    raise ValueError(f"Operation with opcode {opcode} requires exactly two operands.")
-                tf_output = tf_function(operands[0].tf_tensor, operands[1].tf_tensor)
+                if len(operands) < 2:
+                    raise ValueError(f"Operation with opcode {opcode} requires at least two operands.")
+                tf_output = reduce(tf_function, [op.tf_tensor for op in operands])
 
         # Create output tensor
         output_tensor = Tensor(tf_output, name=name)
@@ -329,26 +331,26 @@ class SubGraph:
         return output_tensor
 
     # Optional helper methods for convenience
-    def bitwise_and(self, a: Tensor, b: Tensor, name: Optional[str] = None) -> Tensor:
-        return self.bitwise(IoOpCode.OpCode.BITWISE_AND, [a, b], name)
-
-    def bitwise_or(self, a: Tensor, b: Tensor, name: Optional[str] = None) -> Tensor:
-        return self.bitwise(IoOpCode.OpCode.BITWISE_OR, [a, b], name)
-
-    def bitwise_xor(self, a: Tensor, b: Tensor, name: Optional[str] = None) -> Tensor:
-        return self.bitwise(IoOpCode.OpCode.BITWISE_XOR, [a, b], name)
-
     def bitwise_not(self, a: Tensor, name: Optional[str] = None) -> Tensor:
         return self.bitwise(IoOpCode.OpCode.BITWISE_NOT, [a], name)
 
-    def bitwise_nand(self, a: Tensor, b: Tensor, name: Optional[str] = None) -> Tensor:
-        return self.bitwise(IoOpCode.OpCode.BITWISE_NAND, [a, b], name)
+    def bitwise_and(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
+        return self.bitwise(IoOpCode.OpCode.BITWISE_AND, list(operands), name)
 
-    def bitwise_nor(self, a: Tensor, b: Tensor, name: Optional[str] = None) -> Tensor:
-        return self.bitwise(IoOpCode.OpCode.BITWISE_NOR, [a, b], name)
+    def bitwise_or(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
+        return self.bitwise(IoOpCode.OpCode.BITWISE_OR, list(operands), name)
 
-    def bitwise_xnor(self, a: Tensor, b: Tensor, name: Optional[str] = None) -> Tensor:
-        return self.bitwise(IoOpCode.OpCode.BITWISE_XNOR, [a, b], name)
+    def bitwise_xor(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
+        return self.bitwise(IoOpCode.OpCode.BITWISE_XOR, list(operands), name)
+
+    def bitwise_nand(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
+        return self.bitwise(IoOpCode.OpCode.BITWISE_NAND, list(operands), name)
+
+    def bitwise_nor(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
+        return self.bitwise(IoOpCode.OpCode.BITWISE_NOR, list(operands), name)
+
+    def bitwise_xnor(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
+        return self.bitwise(IoOpCode.OpCode.BITWISE_XNOR, list(operands), name)
 
     # Additional methods for other operations can be implemented similarly
 
@@ -424,9 +426,9 @@ class SubGraph:
                     raise ValueError("BITWISE_NOT operation requires exactly one input.")
                 return tf_function(input_values[0])
             else:
-                if len(input_values) != 2:
-                    raise ValueError(f"Operation with opcode {opcode} requires exactly two inputs.")
-                return tf_function(input_values[0], input_values[1])
+                if len(input_values) < 2:
+                    raise ValueError(f"Operation with opcode {opcode} requires at least two inputs.")
+                return reduce(tf_function, input_values)
         else:
             raise NotImplementedError(f"Operator with opcode {opcode} is not implemented")
 
@@ -614,9 +616,10 @@ class SubGraph:
                         raise ValueError("BITWISE_NOT operation requires exactly one input.")
                     result = bitwise_layer(input_tensors[0])
                 else:
-                    if len(input_tensors) != 2:
-                        raise ValueError(f"Operation with opcode {opcode} requires exactly two inputs.")
-                    result = bitwise_layer(input_tensors)
+                    if len(input_tensors) < 2:
+                        raise ValueError(f"Operation with opcode {opcode} requires at least two inputs.")
+                    # Reduce over input tensors using the layer
+                    result = reduce(lambda acc, x: bitwise_layer([acc, x]), input_tensors)
 
                 # Map output tensor
                 if len(operator.outputs) != 1:

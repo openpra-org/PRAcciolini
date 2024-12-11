@@ -45,7 +45,6 @@ class GateDefinition(EventDefinition):
                 return child.info.tag
         return None
 
-
 class GateReference(NamedEvent):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="gate",
