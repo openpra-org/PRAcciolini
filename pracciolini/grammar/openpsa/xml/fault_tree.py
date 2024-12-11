@@ -1,7 +1,7 @@
 from typing import List
 
 from pracciolini.grammar.openpsa.xml.define_event import EventDefinition, NamedEvent
-from pracciolini.grammar.openpsa.xml.expression.logical import OrExpression, LogicalExpression
+from pracciolini.grammar.openpsa.xml.expression.logical import LogicalExpression
 from pracciolini.grammar.openpsa.xml.expression.meta import LogicalMeta, ReferenceMeta, ConstantsMeta
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo
 
