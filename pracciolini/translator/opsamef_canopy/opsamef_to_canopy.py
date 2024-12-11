@@ -264,20 +264,24 @@ def build_definitions(tree: Element, subgraph: SubGraph):
 
     return inputs, operators, outputs
 
-
+@translation('opsamef_ft_xml', 'canopy_subgraph')
+def opsamef_ft_xml_to_canopy_subgraph(ft_xml: Element) -> SubGraph:
+    subgraph: SubGraph = SubGraph()
+    return subgraph
 
 ## note: we are bit-packing the samples, which is fine, but it only gives us linear speed up
 ## rather, we should be using the bit-fields as gate inputs. for example, if we see that an event tree has 12 functional
 # events, we should use a 16-bit dtype to encode the state of each of the functional events (what we have been doing
 # with PLA).
 
-@translation('opsamef_xml', 'canopy_subgraph')
+@translation('opsamef_xml_file', 'canopy_subgraph')
 def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
     xml_data = read_openpsa_xml(file_path)
     subgraph: SubGraph = SubGraph()
     inputs, operators, outputs = build_definitions(xml_data, subgraph)
     for operator in operators.values():
         subgraph.register_output(operator)
+    subgraph.prune()
     tf_graph = subgraph.to_tensorflow_model()
     tf_graph.save(f"{file_path.split('/')[-1]}.h5")
 
@@ -288,3 +292,4 @@ def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
     # elapsed_time = end_time - start_time
     # print(f"Elapsed time: {elapsed_time:.4f} seconds")
     return subgraph
+

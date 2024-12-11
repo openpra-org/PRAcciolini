@@ -57,7 +57,7 @@ class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
         cls.flat_fixtures["valid"] -= cls.flat_fixtures["ignored"]
 
     def test_translate_demo(self):
-        for file_path in self.flat_fixtures["valid-generic-pwr"]:
+        for file_path in self.flat_fixtures["valid-demo"]:
             with self.subTest(file_path=file_path):
                 self.assertTrue(opsamef_xml_to_canopy_subgraph(file_path),
                                 f"File {file_path} should be valid.")
