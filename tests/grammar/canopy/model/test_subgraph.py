@@ -674,15 +674,19 @@ class SubGraphCoreTests(unittest.TestCase):
             loaded_subgraph = SubGraph.load(file_path)
 
             # Verify that the loaded subgraph matches the original
-            self.assertEqual(loaded_subgraph.name, self.subgraph.name, "Subgraph name should match after loading")
-            self.assertEqual(len(loaded_subgraph.tensors), len(self.subgraph.tensors), "Number of tensors should match after loading")
-            self.assertEqual(len(loaded_subgraph.operators), len(self.subgraph.operators), "Number of operators should match after loading")
+            self.assertEqual(loaded_subgraph.name.decode('utf-8'), self.subgraph.name, "Subgraph name should match after loading")
+            self.assertEqual(len(loaded_subgraph.tensors), len(self.subgraph.tensors),
+                             "Number of tensors should match after loading")
+            self.assertEqual(len(loaded_subgraph.operators), len(self.subgraph.operators),
+                             "Number of operators should match after loading")
 
             # Verify tensors
             for original_tensor, loaded_tensor in zip(self.subgraph.tensors, loaded_subgraph.tensors):
-                self.assertEqual(original_tensor.name, loaded_tensor.name, "Tensor names should match after loading")
-                self.assertEqual(original_tensor.tf_tensor.dtype, loaded_tensor.tf_tensor.dtype, "Tensor dtypes should match after loading")
-                self.assertEqual(original_tensor.tf_tensor.shape, loaded_tensor.tf_tensor.shape, "Tensor shapes should match after loading")
+                self.assertEqual(original_tensor.name, loaded_tensor.name.decode('utf-8'), "Tensor names should match after loading")
+                self.assertEqual(original_tensor.tf_tensor.dtype, loaded_tensor.tf_tensor.dtype,
+                                 "Tensor dtypes should match after loading")
+                self.assertEqual(original_tensor.tf_tensor.shape, loaded_tensor.tf_tensor.shape,
+                                 "Tensor shapes should match after loading")
                 self.assertTrue(
                     tf.reduce_all(tf.equal(original_tensor.tf_tensor, loaded_tensor.tf_tensor)),
                     "Tensor values should match after loading",
