@@ -52,6 +52,9 @@ Homepage = "https://openpra.org"
 
 [project.optional-dependencies]
 default = []
+cuda = [
+    "tensorflow[and-cuda]",
+]
 dev = [
     "antlr4-tools",
     "autopep8",
