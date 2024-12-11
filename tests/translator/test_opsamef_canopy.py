@@ -2,7 +2,8 @@ import os
 import unittest
 from typing import Dict, Set
 
-from pracciolini.translator.opsamef_canopy.opsamef_to_canopy import opsamef_xml_to_canopy_subgraph
+from pracciolini.translator.opsamef_canopy.translations import opsamef_xml_to_canopy_subgraph, \
+    opsamef_xml_file_to_canopy_keras_file
 from pracciolini.utils.file_ops import FileOps
 
 
@@ -59,7 +60,7 @@ class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
     def test_translate_demo(self):
         for file_path in self.flat_fixtures["valid-demo"]:
             with self.subTest(file_path=file_path):
-                self.assertTrue(opsamef_xml_to_canopy_subgraph(file_path),
+                self.assertTrue(opsamef_xml_file_to_canopy_keras_file(file_path),
                                 f"File {file_path} should be valid.")
 
 
