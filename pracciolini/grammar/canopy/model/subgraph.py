@@ -1,7 +1,7 @@
 from functools import reduce
 
 import tensorflow as tf
-from typing import List, Optional, Dict, Set
+from typing import List, Optional, Dict, Set, Tuple
 
 from pracciolini.grammar.canopy.io import (
     SubGraph as IoSubGraph,
@@ -352,7 +352,161 @@ class SubGraph:
     def bitwise_xnor(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
         return self.bitwise(IoOpCode.OpCode.BITWISE_XNOR, list(operands), name)
 
-    # Additional methods for other operations can be implemented similarly
+    def prune(self):
+        """
+        Prunes the subgraph by removing unreferenced tensors and operators,
+        identifying dangling or undefined references, and rebuilding the inputs and outputs lists.
+        """
+        # Step 1: Build mappings between tensors and operators
+        tensor_to_producers, tensor_to_consumers = self._build_tensor_operator_mappings()
+
+        # Step 2: Find reachable tensors and operators starting from outputs
+        reachable_tensors, reachable_operators = self._get_reachable_tensors_and_operators(tensor_to_producers)
+
+        # Step 3: Remove unreferenced tensors and operators
+        self._remove_unreachable_elements(reachable_tensors, reachable_operators)
+
+        # Step 4: Rebuild inputs and outputs
+        self._rebuild_inputs_outputs(tensor_to_producers, tensor_to_consumers, reachable_tensors)
+
+        # Step 5: Rebuild internal mappings and update operator indices
+        self._rebuild_internal_mappings()
+
+    def _build_tensor_operator_mappings(self) -> Tuple[Dict[Tensor, List[Operator]], Dict[Tensor, List[Operator]]]:
+        """
+        Builds mappings from tensors to their producing operators and consuming operators.
+
+        Returns:
+            Tuple[Dict[Tensor, List[Operator]], Dict[Tensor, List[Operator]]]: A tuple containing
+            tensor_to_producers and tensor_to_consumers dictionaries.
+        """
+        tensor_to_producers = {}
+        tensor_to_consumers = {}
+
+        for operator in self.operators:
+            # Map output tensors to their producing operator
+            for output_idx in operator.outputs:
+                tensor = self._index_to_tensor[output_idx]
+                tensor_to_producers.setdefault(tensor, []).append(operator)
+
+            # Map input tensors to their consuming operators
+            for input_idx in operator.inputs:
+                tensor = self._index_to_tensor[input_idx]
+                tensor_to_consumers.setdefault(tensor, []).append(operator)
+
+        return tensor_to_producers, tensor_to_consumers
+
+    def _get_reachable_tensors_and_operators(
+            self,
+            tensor_to_producers: Dict[Tensor, List[Operator]],
+    ) -> Tuple[Set[Tensor], Set[Operator]]:
+        """
+        Performs a backward traversal from the outputs to find all reachable tensors and operators.
+
+        Args:
+            tensor_to_producers (Dict[Tensor, List[Operator]]): Mapping from tensors to their producers.
+
+        Returns:
+            Tuple[Set[Tensor], Set[Operator]]: Sets of reachable tensors and operators.
+        """
+        reachable_tensors = set()
+        reachable_operators = set()
+        stack = list(self.outputs)
+
+        while stack:
+            tensor = stack.pop()
+            if tensor not in reachable_tensors:
+                reachable_tensors.add(tensor)
+                producers = tensor_to_producers.get(tensor, [])
+                for operator in producers:
+                    if operator not in reachable_operators:
+                        reachable_operators.add(operator)
+                        # Add input tensors to the stack for traversal
+                        for input_idx in operator.inputs:
+                            input_tensor = self._index_to_tensor[input_idx]
+                            stack.append(input_tensor)
+
+        return reachable_tensors, reachable_operators
+
+    def _remove_unreachable_elements(
+            self,
+            reachable_tensors: Set[Tensor],
+            reachable_operators: Set[Operator],
+    ):
+        """
+        Removes tensors and operators that are not reachable from the outputs.
+
+        Args:
+            reachable_tensors (Set[Tensor]): The set of tensors that are reachable.
+            reachable_operators (Set[Operator]): The set of operators that are reachable.
+        """
+        # Remove unreachable tensors
+        self.tensors = [tensor for tensor in self.tensors if tensor in reachable_tensors]
+
+        # Remove unreachable operators
+        self.operators = [operator for operator in self.operators if operator in reachable_operators]
+
+    def _rebuild_inputs_outputs(
+            self,
+            tensor_to_producers: Dict[Tensor, List[Operator]],
+            tensor_to_consumers: Dict[Tensor, List[Operator]],
+            reachable_tensors: Set[Tensor],
+    ):
+        """
+        Rebuilds the inputs and outputs lists based on the pruned subgraph.
+
+        Args:
+            tensor_to_producers (Dict[Tensor, List[Operator]]): Mapping from tensors to their producers.
+            tensor_to_consumers (Dict[Tensor, List[Operator]]): Mapping from tensors to their consumers.
+            reachable_tensors (Set[Tensor]): The set of tensors that are reachable.
+        """
+        # Inputs are tensors that have no producers
+        self.inputs = [
+            tensor
+            for tensor in reachable_tensors
+            if tensor not in tensor_to_producers
+        ]
+
+        # Outputs are tensors that have no consumers
+        self.outputs = [
+            tensor
+            for tensor in reachable_tensors
+            if tensor not in tensor_to_consumers
+        ]
+
+    def _rebuild_internal_mappings(self):
+        """
+        Rebuilds the internal mappings and dependencies after pruning.
+        Also updates operator inputs and outputs to match the new tensor indices.
+        """
+        # Build mapping from old tensor indices to new tensor indices
+        old_tensor_to_old_index = {tensor: idx for idx, tensor in self._index_to_tensor.items()}
+        #old_indices = set(self._index_to_tensor.keys())  # Set of old indices
+        old_indices_to_new_indices = {}
+
+        # Rebuild tensor index mappings
+        self._tensor_to_index = {}
+        self._index_to_tensor = {}
+        for new_idx, tensor in enumerate(self.tensors):
+            old_idx = old_tensor_to_old_index[tensor]
+            self._tensor_to_index[tensor] = new_idx
+            self._index_to_tensor[new_idx] = tensor
+            old_indices_to_new_indices[old_idx] = new_idx
+
+        # Update operator inputs and outputs to use new indices
+        for operator in self.operators:
+            operator.inputs = [old_indices_to_new_indices[idx] for idx in operator.inputs]
+            operator.outputs = [old_indices_to_new_indices[idx] for idx in operator.outputs]
+
+        # Rebuild dependencies
+        self._dependencies = {tensor: set() for tensor in self.tensors}
+        for operator in self.operators:
+            output_tensors = [self._index_to_tensor[idx] for idx in operator.outputs]
+            input_tensors = [self._index_to_tensor[idx] for idx in operator.inputs]
+            for output_tensor in output_tensors:
+                self._dependencies[output_tensor] = set()
+                for input_tensor in input_tensors:
+                    self._dependencies[input_tensor].add(output_tensor)
 
     def execute(self, feed_dict: Dict[Tensor, tf.Tensor]) -> Dict[Tensor, tf.Tensor]:
         """
@@ -494,7 +648,7 @@ class SubGraph:
 
         return has_cycle
 
-    def to_tensorflow_graph(self) -> tf.Graph:
+    def to_tensorflow_graph(self, prune_first: bool = False) -> tf.Graph:
         """
         Constructs a TensorFlow graph by traversing this SubGraph,
         collecting the tensors and operations.
@@ -502,6 +656,9 @@ class SubGraph:
         Returns:
             tf.Graph: A TensorFlow graph that represents the subgraph.
         """
+        if prune_first:
+            self.prune()
+
         graph = tf.Graph()
         with graph.as_default():
             # Disable eager execution to build a static graph
@@ -565,13 +722,16 @@ class SubGraph:
 
         return graph
 
-    def to_tensorflow_model(self) -> tf.keras.Model:
+    def to_tensorflow_model(self, prune_first: bool = False) -> tf.keras.Model:
         """
         Constructs a TensorFlow Keras model that corresponds to this SubGraph.
 
         Returns:
             tf.keras.Model: A Keras model representing the subgraph.
         """
+        if prune_first:
+            self.prune()
+
         # Create mapping from our Tensors to TensorFlow tensors
         tensor_mapping: Dict[Tensor, tf.Tensor] = {}
 
