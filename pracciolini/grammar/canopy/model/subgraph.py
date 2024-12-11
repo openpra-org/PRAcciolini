@@ -1,11 +1,14 @@
+import os
 from functools import reduce
 
+import flatbuffers
 import tensorflow as tf
 from typing import List, Optional, Dict, Set, Tuple
 
 from pracciolini.grammar.canopy.io import (
     SubGraph as IoSubGraph,
     OpCode as IoOpCode,
+    DAGs as IoDAGs,
 )
 from pracciolini.grammar.canopy.model.layers import BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand, \
     BitwiseNor, BitwiseXnor
@@ -810,3 +813,102 @@ class SubGraph:
             name=self.name
         )
         return model
+
+
+    def save(self, file_path: str):
+        """
+        Saves the subgraph to a file.
+
+        Args:
+            file_path (str): The path to the file where the subgraph will be saved.
+
+        Raises:
+            IOError: If there is an error writing to the file.
+            Exception: If there is any error during serialization.
+        """
+        try:
+            builder = flatbuffers.Builder(1024)
+            buffers = BufferManager()
+
+            # Serialize the subgraph
+            subgraph_offset = self.to_graph(builder, buffers)
+
+            # Serialize buffers
+            buffers.serialize_buffers(builder)
+            buffer_offsets = buffers.get_buffer_offsets()
+
+            # Build buffers vector
+            IoDAGs.DAGsStartBuffersVector(builder, len(buffer_offsets))
+            for offset in reversed(buffer_offsets):
+                builder.PrependUOffsetTRelative(offset)
+            buffers_vector = builder.EndVector(len(buffer_offsets))
+
+            # Build subgraphs vector
+            IoDAGs.DAGsStartSubgraphsVector(builder, 1)
+            builder.PrependUOffsetTRelative(subgraph_offset)
+            subgraphs_vector = builder.EndVector(1)
+
+            # Create strings before starting the DAGs object
+            name_offset = builder.CreateString(self.name or "SubGraph")
+            description_offset = builder.CreateString("Serialized SubGraph")
+
+            # Build the DAGs object
+            IoDAGs.DAGsStart(builder)
+            IoDAGs.DAGsAddSubgraphs(builder, subgraphs_vector)
+            IoDAGs.DAGsAddBuffers(builder, buffers_vector)
+            IoDAGs.DAGsAddName(builder, name_offset)
+            IoDAGs.DAGsAddDescription(builder, description_offset)
+            dags_offset = IoDAGs.DAGsEnd(builder)
+
+            builder.Finish(dags_offset)
+
+            buf = builder.Output()
+
+            with open(file_path, 'wb') as f:
+                f.write(buf)
+        except Exception as e:
+            raise IOError(f"Error saving subgraph to file '{file_path}': {str(e)}")
+
+    @classmethod
+    def load(cls, file_path: str) -> 'SubGraph':
+        """
+        Loads a subgraph from a file.
+
+        Args:
+            file_path (str): The path to the file from which the subgraph will be loaded.
+
+        Returns:
+            SubGraph: The loaded subgraph instance.
+
+        Raises:
+            IOError: If there is an error reading from the file.
+            Exception: If there is any error during deserialization.
+        """
+        try:
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"File '{file_path}' does not exist.")
+
+            with open(file_path, 'rb') as f:
+                buf = f.read()
+
+            io_dags = IoDAGs.DAGs.GetRootAs(buf, 0)
+
+            # Assuming only one subgraph
+            if io_dags.SubgraphsLength() != 1:
+                raise ValueError(f"Expected one subgraph, found {io_dags.SubgraphsLength()}")
+
+            io_subgraph = io_dags.Subgraphs(0)
+
+            # Get the buffers
+            buffer_data = []
+            for i in range(io_dags.BuffersLength()):
+                io_buffer = io_dags.Buffers(i)
+                # Assuming that data is in little-endian format
+                buffer_bytes = io_buffer.DataAsNumpy().tobytes()
+                buffer_data.append(buffer_bytes)
+
+            subgraph = cls.from_graph(io_subgraph, buffer_data)
+
+            return subgraph
+        except Exception as e:
+            raise IOError(f"Error loading subgraph from file '{file_path}': {str(e)}")
