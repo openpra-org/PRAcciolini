@@ -28,7 +28,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         AorBorCandD = subgraph_1d.bitwise_and(AorBorC, self.D, name="1d_((A|B|C)&D)")
         subgraph_1d.register_output(AorBorCandD)
         tf_graph = subgraph_1d.to_tensorflow_model()
-        tf_graph.save("subgraph_1d.h5")
+        tf_graph.save("/tmp/subgraph_1d.h5")
 
     def test_compare_1d_with_concat_tensors(self):
         subgraph_1d = SubGraph(name="1D")

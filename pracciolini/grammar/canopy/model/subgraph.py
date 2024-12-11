@@ -2,6 +2,7 @@ import os
 from functools import reduce
 
 import flatbuffers
+import numpy as np
 import tensorflow as tf
 from typing import List, Optional, Dict, Set, Tuple
 
@@ -903,8 +904,12 @@ class SubGraph:
             buffer_data = []
             for i in range(io_dags.BuffersLength()):
                 io_buffer = io_dags.Buffers(i)
-                # Assuming that data is in little-endian format
-                buffer_bytes = io_buffer.DataAsNumpy().tobytes()
+                data_numpy = io_buffer.DataAsNumpy()
+                if isinstance(data_numpy, np.ndarray):
+                    buffer_bytes = data_numpy.tobytes()
+                else:
+                    # Empty buffer
+                    buffer_bytes = b''
                 buffer_data.append(buffer_bytes)
 
             subgraph = cls.from_graph(io_subgraph, buffer_data)
