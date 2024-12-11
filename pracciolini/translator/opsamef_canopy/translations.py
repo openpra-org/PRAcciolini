@@ -10,14 +10,6 @@ from pracciolini.translator.opsamef_canopy.opsamef_to_canopy import build_defini
     get_event_references_and_definitions, opsamef_ft_xml_to_canopy_subgraph
 
 
-@translation('opsamef_ft_xml_file', 'canopy_subgraphs')
-def opsamef_fts_xml_to_canopy_subgraphs(file_path: str) -> OrderedDict[str, SubGraph]:
-    subgraphs_map: OrderedDict[str, SubGraph] = OrderedDict()
-    xml_data = read_openpsa_xml(file_path)
-    referenced_events_in_file, event_definitions_in_file = get_event_references_and_definitions(xml_data)
-    for ft_def_xml in xml_data.xpath("//define-fault-tree"):
-        opsamef_ft_xml_to_canopy_subgraph(ft_def_xml)
-    return subgraphs_map
 
 @translation('opsamef_xml', 'canopy_subgraph')
 def opsamef_xml_to_canopy_subgraph(xml_data: Element) -> SubGraph:

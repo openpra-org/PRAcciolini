@@ -680,7 +680,8 @@ class SubGraphCoreTests(unittest.TestCase):
             self.assertEqual(len(loaded_subgraph.operators), len(self.subgraph.operators),
                              "Number of operators should match after loading")
 
-            # Verify tensors
+            # Verify tensors and create a mapping
+            tensor_mapping = {}
             for original_tensor, loaded_tensor in zip(self.subgraph.tensors, loaded_subgraph.tensors):
                 self.assertEqual(original_tensor.name, loaded_tensor.name.decode('utf-8'), "Tensor names should match after loading")
                 self.assertEqual(original_tensor.tf_tensor.dtype, loaded_tensor.tf_tensor.dtype,
@@ -691,6 +692,7 @@ class SubGraphCoreTests(unittest.TestCase):
                     tf.reduce_all(tf.equal(original_tensor.tf_tensor, loaded_tensor.tf_tensor)),
                     "Tensor values should match after loading",
                 )
+                tensor_mapping[original_tensor] = loaded_tensor
 
             # Verify operators
             for original_op, loaded_op in zip(self.subgraph.operators, loaded_subgraph.operators):
@@ -706,11 +708,20 @@ class SubGraphCoreTests(unittest.TestCase):
                 self.tensor_b: tf.constant([1, 1, 0], dtype=tf.uint8)
             }
             original_output = self.subgraph.execute(input_values)
-            loaded_output = loaded_subgraph.execute(input_values)
-            self.assertTrue(
-                tf.reduce_all(tf.equal(original_output[result_tensor], loaded_output[result_tensor])),
-                "Execution results should match after loading"
-            )
+
+            # Prepare input values for loaded subgraph with mapped tensors
+            loaded_input_values = {
+                tensor_mapping[self.tensor_a]: input_values[self.tensor_a],
+                tensor_mapping[self.tensor_b]: input_values[self.tensor_b]
+            }
+            loaded_output = loaded_subgraph.execute(loaded_input_values)
+
+            # Compare outputs using tensors from the respective subgraphs
+            for orig_tensor, loaded_tensor in zip(self.subgraph.outputs, loaded_subgraph.outputs):
+                self.assertTrue(
+                    tf.reduce_all(tf.equal(original_output[orig_tensor], loaded_output[loaded_tensor])),
+                    "Execution results should match after loading"
+                )
 
         finally:
             # Clean up the temporary file
