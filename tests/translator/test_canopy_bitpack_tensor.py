@@ -1,7 +1,7 @@
 import unittest
 import tensorflow as tf
 
-from pracciolini.translator.opsamef_canopy.samples import pack_tensor_bits
+from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits
 
 
 class TestBitPackTensor(unittest.TestCase):

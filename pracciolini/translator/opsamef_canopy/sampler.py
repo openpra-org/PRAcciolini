@@ -1,15 +1,5 @@
-from typing import Tuple
-
 import tensorflow as tf
-import tensorflow_probability as tfp
 import numpy as np
-
-
-def generate_uniform_samples(dim: Tuple | tf.TensorShape, low = 0, high = 1, seed = 372, dtype: tf.DType = tf.float64) -> tf.Tensor:
-    uniform_dist = tfp.distributions.Uniform(low=tf.cast(low, dtype=dtype), high=tf.cast(high, dtype=dtype))
-    uniform_samples = uniform_dist.sample(sample_shape=dim, seed=tuple([seed, seed]))
-    return uniform_samples
-
 
 def pack_tensor_bits(bool_tensor: tf.Tensor, dtype: tf.DType = tf.uint8) -> tf.Tensor:
     """
@@ -69,7 +59,7 @@ def pack_tensor_bits(bool_tensor: tf.Tensor, dtype: tf.DType = tf.uint8) -> tf.T
 
     return packed_tensor
 
-def print_tensor_as_bit_vectors(tensor):
+def tensor_as_bit_vectors(tensor):
     """
     Accepts a tensor and prints its elements as bit-vectors.
 
@@ -91,16 +81,3 @@ def print_tensor_as_bit_vectors(tensor):
 
     # Apply the vectorized function to the numpy array
     return vectorized_format(numpy_array)
-
-
-if __name__ == '__main__':
-    vars_point_estimates = tf.constant([0.1, 0.2, 0.3, 0.4, 0.5], shape=(5,), dtype=tf.float64)
-    num_samples = 9
-    samples_dim = (vars_point_estimates.shape[0], num_samples)
-    samples = generate_uniform_samples(samples_dim)
-    sampled_probabilities = samples >= vars_point_estimates[:, tf.newaxis]
-    probability_bits = pack_tensor_bits(sampled_probabilities, dtype=tf.uint32)
-    print(sampled_probabilities)
-    print_tensor_as_bit_vectors(probability_bits)
-
-
