@@ -1,4 +1,7 @@
+from typing import List
+
 from pracciolini.grammar.openpsa.xml.define_event import EventDefinition, NamedEvent
+from pracciolini.grammar.openpsa.xml.expression.logical import OrExpression, LogicalExpression
 from pracciolini.grammar.openpsa.xml.expression.meta import LogicalMeta, ReferenceMeta, ConstantsMeta
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo
 
@@ -15,6 +18,13 @@ class FaultTreeDefinition(EventDefinition):
         super().validate(instance)
         return instance
 
+    @property
+    def gates(self):
+        gates: List[GateDefinition] = []
+        for child in self.children:
+            if isinstance(child, GateDefinition):
+                gates.append(child)
+        return gates
 
 class GateDefinition(EventDefinition):
     def __init__(self, *args, **kwargs) -> None:
@@ -27,6 +37,13 @@ class GateDefinition(EventDefinition):
     def validate(cls, instance: 'GateDefinition'):
         super().validate(instance)
         return instance
+
+    @property
+    def type(self):
+        for child in self.children:
+            if isinstance(child, LogicalExpression):
+                return child.info.tag
+        return None
 
 
 class GateReference(NamedEvent):

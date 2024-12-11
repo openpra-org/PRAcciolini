@@ -1,8 +1,12 @@
 from pracciolini.grammar.openpsa.xml.expression.meta import ExpressionMeta
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo, XMLSerializable
 
+class LogicalExpression(XMLSerializable):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-class CardinalityExpression(XMLSerializable):
+
+class CardinalityExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="cardinality",
                                  attrs={"min", "max"},
@@ -12,7 +16,7 @@ class CardinalityExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class AtleastExpression(XMLSerializable):
+class AtleastExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="atleast",
                                  attrs={"min"},
@@ -22,7 +26,7 @@ class AtleastExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class ImplyExpression(XMLSerializable):
+class ImplyExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="imply",
                                  children=ExpressionMeta.permitted_tags,
@@ -30,7 +34,7 @@ class ImplyExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class OrExpression(XMLSerializable):
+class OrExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="or",
                                  children=ExpressionMeta.permitted_tags,
@@ -38,7 +42,7 @@ class OrExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class AndExpression(XMLSerializable):
+class AndExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="and",
                                  children=ExpressionMeta.permitted_tags,
@@ -46,7 +50,7 @@ class AndExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class NandExpression(XMLSerializable):
+class NandExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="nand",
                                  children=ExpressionMeta.permitted_tags,

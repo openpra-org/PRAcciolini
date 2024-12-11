@@ -1,4 +1,4 @@
-from typing import Tuple, Any
+from typing import Tuple, Any, List
 from collections import OrderedDict
 
 from lxml.etree import Element
@@ -8,11 +8,12 @@ from tensorflow import Operation
 from tensorflow.python.framework.ops import _EagerTensorBase
 
 from pracciolini.core.decorators import translation
+from pracciolini.grammar.canopy.io.OpCode import OpCode
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml
-from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits
+from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits, tensor_as_bit_vectors
 
 
 def build_events_map(tree: Element) -> OrderedDict[str, str]:
@@ -86,7 +87,7 @@ def generate_uniform_samples(
         tf.Tensor: A tensor containing uniformly distributed samples.
     """
     uniform_dist = tfp.distributions.Uniform(low=tf.cast(low, dtype=dtype), high=tf.cast(high, dtype=dtype))
-    uniform_samples = uniform_dist.sample(sample_shape=dim, seed=tuple([seed, seed]))
+    uniform_samples = uniform_dist.sample(sample_shape=dim, seed=seed)
     return uniform_samples
 
 
@@ -131,23 +132,144 @@ def sample_probabilities_bit_packed(
         "sampler_shape": samples.shape
     })
 
-def register_input_events(graph: SubGraph, stacked_tensor:tf.Tensor, events_map: OrderedDict[str, str], axis=0):
+def register_input_events(graph: SubGraph, stacked_tensor:tf.Tensor, events_map: OrderedDict[str, str], axis=0) -> OrderedDict[str, Tensor]:
     unstacked = tf.unstack(stacked_tensor, axis=axis)
+    input_tensor_map: OrderedDict[str, Tensor] = OrderedDict()
     for tensor_slice, event_name in zip(unstacked, events_map.keys()):
         tensor = Tensor(tensor=tf.constant(value=tensor_slice, name=event_name), name=event_name)
         graph.register_input(tensor)
-    return graph
+        input_tensor_map[event_name] = tensor
+    return input_tensor_map
 
-def build_fault_trees(tree: Element, graph: SubGraph):
-    events: OrderedDict[str, str] = OrderedDict()
-    ft_defs_xml = tree.xpath("//define-fault-tree")
-    for ft_xml in ft_defs_xml:
-        fault_tree = OpsaMefXmlRegistry.instance().build(ft_xml)
-        #events[event.name] = event.value
+def build_operation(gate_xml, subgraph, input_tensors_map):
+    gate = OpsaMefXmlRegistry.instance().build(gate_xml)
+    opcode = subgraph.supported_logical_opcodes.get(gate.type, None)
+    if opcode is None:
+        print(f"ignoring unsupported gate of type: {gate.type}")
+        return None, input_tensors_map
+    children_names = [child.name for child in gate.children[0].children]
+    op_inputs: List[Tensor] = []
+    for child in children_names:
+        child_tensor = input_tensors_map.get(child, None)
+        if child_tensor is None:
+            raise TypeError(f"Attempted to use input tensor {child} but it does not exist in subgraph {subgraph}")
+        op_inputs.append(child_tensor)
+    constructed_op = subgraph.bitwise(opcode=opcode, operands=op_inputs, name=f"{gate.type}_{gate.name}")
+    input_tensors_map[gate.name] = constructed_op
+    return gate.name, input_tensors_map
+
+def build_operations_map(tree: Element, subgraph: SubGraph, input_tensors_map: OrderedDict[str, Tensor]):
+    ops: OrderedDict[str, Tensor] = OrderedDict()
+    level_1_gates = tree.xpath("//define-gate[not(./*/*[not(self::basic-event or self::house-event)])]")
+    for gate_def_xml in level_1_gates:
+        op_name, input_tensors_map = build_operation(gate_def_xml, subgraph, input_tensors_map)
+        if op_name is not None:
+            ops[op_name] = input_tensors_map[op_name]
+    return ops, input_tensors_map
+
+def bit_pack_samples(prob, num_samples = int(2 ** 20), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint64):
+    bits_per_packed_dtype = tf.dtypes.as_dtype(bitpack_dtype).size * 8
+    sample_count = int(((num_samples + bits_per_packed_dtype - 1) // bits_per_packed_dtype) * bits_per_packed_dtype)
+    samples_dim = (1, sample_count)
+    samples = generate_uniform_samples(samples_dim, seed=seed, dtype=sampler_dtype)
+    probability = tf.constant(value=prob, dtype=sampler_dtype)
+    sampled_probabilities: tf.Tensor = probability >= samples
+    packed_samples = pack_tensor_bits(sampled_probabilities, dtype=bitpack_dtype)
+    return packed_samples
+
+def get_referenced_events(tree: Element):
+    events = set()
+    referenced_events_xml = tree.xpath("//event | //house-event | //basic-event | //gate")
+    for event_ref_xml in referenced_events_xml:
+        event_ref = OpsaMefXmlRegistry.instance().build(event_ref_xml)
+        events.add(event_ref.name)
     return events
 
+def get_event_definitions(tree: Element):
+    events = set()
+    referenced_events_xml = tree.xpath("//define-event | //define-house-event | //define-basic-event | //define-gate")
+    for event_ref_xml in referenced_events_xml:
+        event_ref = OpsaMefXmlRegistry.instance().build(event_ref_xml)
+        events.add(event_ref.name)
+    return events
+
+def build_basic_event_definition(xml, subgraph: SubGraph, inputs):
+    be = OpsaMefXmlRegistry.instance().build(xml)
+    be_samples = Tensor(tf.constant(bit_pack_samples(float(be.value)), name=be.name), name=be.name)
+    subgraph.register_input(be_samples)
+    inputs[be.name] = be_samples
+    return be.name, be_samples
+
+def build_gate_definition(xml, subgraph: SubGraph, inputs, operators):
+    gate = OpsaMefXmlRegistry.instance().build(xml)
+    opcode = subgraph.supported_logical_opcodes.get(gate.type, None)
+    if opcode is None:
+        opcode = OpCode.BITWISE_OR
+        print(f"replacing with OR, unsupported gate {gate.name} of type: {gate.type}")
+        #operators[gate.name] = None
+        #return gate.name, None
+
+    children_names = set([child.name for child in gate.children[0].children])
+    if not set(inputs.keys()).union(operators.keys()).issuperset(children_names):
+        return None, None
+
+    op_inputs: List[Tensor] = []
+    for child in children_names:
+        child_tensor = inputs.get(child, operators.get(child, None))
+        if child_tensor is None:
+            raise TypeError(f"Attempted to use input tensor {child} but it does not exist in subgraph {subgraph}")
+        op_inputs.append(child_tensor)
+    print(op_inputs)
+    constructed_op = subgraph.bitwise(opcode=opcode, operands=op_inputs, name=f"{gate.type}_{gate.name}")
+    operators[gate.name] = constructed_op
+
+    return gate.name, constructed_op
+
+def build_definitions(tree: Element, subgraph: SubGraph):
+    inputs = OrderedDict()
+    operators = OrderedDict()
+    outputs = OrderedDict()
+
+    referenced_events = get_referenced_events(tree)
+    event_definitions = get_event_definitions(tree)
+    referenced_but_not_defined = referenced_events - event_definitions
+    print(f"\nundefined references: {referenced_but_not_defined}")
+    defined_but_not_referenced = event_definitions - referenced_events
+    print(f"unreferenced definitions: {defined_but_not_referenced}")
+    unvisited_event_definitions = event_definitions.copy()
+    print(f"unvisited definitions: {unvisited_event_definitions}")
+
+    be_defs_xml = tree.xpath("//define-basic-event | //define-house-event")
+    for be_xml in be_defs_xml:
+        name, tensor = build_basic_event_definition(be_xml, subgraph, inputs)
+        unvisited_event_definitions.remove(name)
+
+    while len(unvisited_event_definitions) > 0:
+        for gate_def_xml in tree.xpath("//define-gate"):
+            op_name, op = build_gate_definition(gate_def_xml, subgraph, inputs, operators)
+            if op_name is not None:
+                unvisited_event_definitions.remove(op_name)
+            print(f"remaining unvisited: {unvisited_event_definitions}")
+
+
+    # unvisited_gates = set()
+    # gate_defs_xml = tree.xpath("//define-gate")
+    # for gate_xml in gate_defs_xml:
+    #     gate = OpsaMefXmlRegistry.instance().build(gate_xml)
+    #
+    #     name, tensor = build_basic_event_definition(be_xml, subgraph)
+    #     inputs[name] = tensor
+    return inputs, operators, outputs
+
+
+
+## note: we are bit-packing the samples, which is fine, but it only gives us linear speed up
+## rather, we should be using the bit-fields as gate inputs. for example, if we see that an event tree has 12 functional
+# events, we should use a 16-bit dtype to encode the state of each of the functional events (what we have been doing
+# with PLA).
+
 @translation('opsamef_xml', 'canopy_subgraph')
-def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
+def opsamef_xml_to_canopy_subgraph2(file_path: str) -> SubGraph:
     xml_data = read_openpsa_xml(file_path)
     events_map = build_events_map(xml_data)
     events, known_probabilities = build_probabilities_from_event_map(events_map, dtype=tf.float32)
@@ -157,14 +279,24 @@ def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
                                                                    sampler_dtype=tf.float32,
                                                                    bitpack_dtype=tf.uint32)
 
-    subgraph: SubGraph = SubGraph(name="file_path")
-    register_input_events(subgraph, sampled_probabilities, events_map, axis=0)
-
-    build_fault_trees(xml_data, subgraph)
-
+    subgraph: SubGraph = SubGraph()
+    input_tensors_map: OrderedDict[str, Tensor] = register_input_events(subgraph, sampled_probabilities, events_map, axis=0)
+    operations_map, input_tensors_map = build_operations_map(xml_data, subgraph, input_tensors_map)
+    for operator in operations_map.values():
+        subgraph.register_output(operator)
     #$events = Tensor(tensor=sampled_probabilities, name="sampled_inputs")
     #subgraph.register_output(events)
     tf_graph = subgraph.to_tensorflow_model()
-    tf_graph.export("output.tflite")
+    tf_graph.save("output.h5")
+    return subgraph
+
+
+def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
+    xml_data = read_openpsa_xml(file_path)
+    subgraph: SubGraph = SubGraph()
+    inputs, operators, outputs = build_definitions(xml_data, subgraph)
+    for operator in inputs.values():
+        subgraph.register_output(operator)
+    tf_graph = subgraph.to_tensorflow_model()
     tf_graph.save("output.h5")
     return subgraph
