@@ -649,6 +649,68 @@ class SubGraphCoreTests(unittest.TestCase):
         except NotImplementedError as e:
             self.assertIn("Operator with opcode 999 is not implemented", str(e))
 
+    def test_save_load(self):
+        """
+        Test the save and load methods of SubGraph.
+        """
+        import tempfile
+        import os
+
+        # Set up the subgraph
+        self.subgraph.register_input(self.tensor_a)
+        self.subgraph.register_input(self.tensor_b)
+        result_tensor = self.subgraph.bitwise_and(self.tensor_a, self.tensor_b, name="BitwiseAndOp")
+        self.subgraph.register_output(result_tensor)
+
+        # Create a temporary file path
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            file_path = tmp_file.name
+
+        try:
+            # Save the subgraph to the file
+            self.subgraph.save(file_path)
+
+            # Load the subgraph from the file
+            loaded_subgraph = SubGraph.load(file_path)
+
+            # Verify that the loaded subgraph matches the original
+            self.assertEqual(loaded_subgraph.name, self.subgraph.name, "Subgraph name should match after loading")
+            self.assertEqual(len(loaded_subgraph.tensors), len(self.subgraph.tensors), "Number of tensors should match after loading")
+            self.assertEqual(len(loaded_subgraph.operators), len(self.subgraph.operators), "Number of operators should match after loading")
+
+            # Verify tensors
+            for original_tensor, loaded_tensor in zip(self.subgraph.tensors, loaded_subgraph.tensors):
+                self.assertEqual(original_tensor.name, loaded_tensor.name, "Tensor names should match after loading")
+                self.assertEqual(original_tensor.tf_tensor.dtype, loaded_tensor.tf_tensor.dtype, "Tensor dtypes should match after loading")
+                self.assertEqual(original_tensor.tf_tensor.shape, loaded_tensor.tf_tensor.shape, "Tensor shapes should match after loading")
+                self.assertTrue(
+                    tf.reduce_all(tf.equal(original_tensor.tf_tensor, loaded_tensor.tf_tensor)),
+                    "Tensor values should match after loading",
+                )
+
+            # Verify operators
+            for original_op, loaded_op in zip(self.subgraph.operators, loaded_subgraph.operators):
+                self.assertEqual(original_op.opcode, loaded_op.opcode, "Operator opcodes should match after loading")
+                self.assertEqual(original_op.inputs, loaded_op.inputs, "Operator inputs should match after loading")
+                self.assertEqual(original_op.outputs, loaded_op.outputs, "Operator outputs should match after loading")
+                # Compare operator args if any
+                self.assertEqual(original_op.args, loaded_op.args, "Operator arguments should match after loading")
+
+            # Optionally, test execution to ensure functionality remains the same
+            input_values = {
+                self.tensor_a: tf.constant([1, 0, 1], dtype=tf.uint8),
+                self.tensor_b: tf.constant([1, 1, 0], dtype=tf.uint8)
+            }
+            original_output = self.subgraph.execute(input_values)
+            loaded_output = loaded_subgraph.execute(input_values)
+            self.assertTrue(
+                tf.reduce_all(tf.equal(original_output[result_tensor], loaded_output[result_tensor])),
+                "Execution results should match after loading"
+            )
+
+        finally:
+            # Clean up the temporary file
+            os.remove(file_path)
 
 if __name__ == '__main__':
     unittest.main()
