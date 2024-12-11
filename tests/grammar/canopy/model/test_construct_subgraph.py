@@ -18,6 +18,18 @@ class SubGraphConstructionTests(unittest.TestCase):
         self.D = Tensor(tf.constant(samples_d, dtype=tf.uint8), name="samples_d", shape=[1, None])
         self.concat_ABC = Tensor(tf.constant([samples_a, samples_b, samples_c], dtype=tf.uint8), name="concat_abc")
 
+    def test_compare_1d_with_multiple_operands(self):
+        subgraph_1d = SubGraph(name="1D")
+        subgraph_1d.register_input(self.A)
+        subgraph_1d.register_input(self.B)
+        subgraph_1d.register_input(self.C)
+        subgraph_1d.register_input(self.D)
+        AorBorC = subgraph_1d.bitwise_or(self.A, self.B, self.C, name="1d_(A|B|C)")
+        AorBorCandD = subgraph_1d.bitwise_and(AorBorC, self.D, name="1d_((A|B|C)&D)")
+        subgraph_1d.register_output(AorBorCandD)
+        tf_graph = subgraph_1d.to_tensorflow_model()
+        tf_graph.save("subgraph_1d.h5")
+
     def test_compare_1d_with_concat_tensors(self):
         subgraph_1d = SubGraph(name="1D")
         subgraph_1d.register_input(self.A)
@@ -34,11 +46,3 @@ class SubGraphConstructionTests(unittest.TestCase):
         print(f"binary_literals_1d: {binary_literals_1d}")
 
         return
-        subgraph_concat = SubGraph(name="concat")
-        subgraph_concat.register_input(self.concat_ABC)
-        subgraph_concat.register_input(self.D)
-        output_2d = subgraph_concat.bitwise_and(self.concat_ABC, self.D, name="2d_(A^B)")
-        subgraph_concat.register_output(output_2d)
-        results_2d = subgraph_concat.execute_function()()[0].numpy()
-        binary_literals_2d = [f'0b{result:08b}' for result in results_2d]
-        print(f"binary_literals_2d: {binary_literals_2d}")

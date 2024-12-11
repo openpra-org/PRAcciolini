@@ -1,3 +1,4 @@
+import time
 from typing import Tuple, Any, List
 from collections import OrderedDict
 
@@ -13,6 +14,7 @@ from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml
+from pracciolini.grammar.openpsa.xml.expression.logical import NotExpression
 from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits, tensor_as_bit_vectors
 
 
@@ -167,7 +169,7 @@ def build_operations_map(tree: Element, subgraph: SubGraph, input_tensors_map: O
             ops[op_name] = input_tensors_map[op_name]
     return ops, input_tensors_map
 
-def bit_pack_samples(prob, num_samples = int(2 ** 20), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint64):
+def bit_pack_samples(prob, num_samples = int(2 ** 10), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8):
     bits_per_packed_dtype = tf.dtypes.as_dtype(bitpack_dtype).size * 8
     sample_count = int(((num_samples + bits_per_packed_dtype - 1) // bits_per_packed_dtype) * bits_per_packed_dtype)
     samples_dim = (1, sample_count)
@@ -195,6 +197,8 @@ def get_event_definitions(tree: Element):
 
 def build_basic_event_definition(xml, subgraph: SubGraph, inputs):
     be = OpsaMefXmlRegistry.instance().build(xml)
+    if be.name in inputs:
+        return be.name, inputs[be.name]
     be_samples = Tensor(tf.constant(bit_pack_samples(float(be.value)), name=be.name), name=be.name)
     subgraph.register_input(be_samples)
     inputs[be.name] = be_samples
@@ -202,14 +206,21 @@ def build_basic_event_definition(xml, subgraph: SubGraph, inputs):
 
 def build_gate_definition(xml, subgraph: SubGraph, inputs, operators):
     gate = OpsaMefXmlRegistry.instance().build(xml)
+    if gate.name in operators:
+        return gate.name, operators[gate.name]
+
     opcode = subgraph.supported_logical_opcodes.get(gate.type, None)
     if opcode is None:
         opcode = OpCode.BITWISE_OR
         print(f"replacing with OR, unsupported gate {gate.name} of type: {gate.type}")
-        #operators[gate.name] = None
-        #return gate.name, None
 
-    children_names = set([child.name for child in gate.children[0].children])
+    children_names = set()
+    for child in gate.children[0].children:
+        if isinstance(child, NotExpression):
+            children_names.add(child.children[0].name)
+        else:
+            children_names.add(child.name)
+    #children_names = set([child.name for child in gate.children[0].children])
     if not set(inputs.keys()).union(operators.keys()).issuperset(children_names):
         return None, None
 
@@ -219,7 +230,7 @@ def build_gate_definition(xml, subgraph: SubGraph, inputs, operators):
         if child_tensor is None:
             raise TypeError(f"Attempted to use input tensor {child} but it does not exist in subgraph {subgraph}")
         op_inputs.append(child_tensor)
-    print(op_inputs)
+
     constructed_op = subgraph.bitwise(opcode=opcode, operands=op_inputs, name=f"{gate.type}_{gate.name}")
     operators[gate.name] = constructed_op
 
@@ -242,23 +253,16 @@ def build_definitions(tree: Element, subgraph: SubGraph):
     be_defs_xml = tree.xpath("//define-basic-event | //define-house-event")
     for be_xml in be_defs_xml:
         name, tensor = build_basic_event_definition(be_xml, subgraph, inputs)
-        unvisited_event_definitions.remove(name)
+        if name is not None and name in unvisited_event_definitions:
+            unvisited_event_definitions.remove(name)
 
     while len(unvisited_event_definitions) > 0:
         for gate_def_xml in tree.xpath("//define-gate"):
             op_name, op = build_gate_definition(gate_def_xml, subgraph, inputs, operators)
-            if op_name is not None:
+            if op_name is not None and op_name in unvisited_event_definitions:
                 unvisited_event_definitions.remove(op_name)
-            print(f"remaining unvisited: {unvisited_event_definitions}")
+            #print(f"remaining unvisited: {unvisited_event_definitions}")
 
-
-    # unvisited_gates = set()
-    # gate_defs_xml = tree.xpath("//define-gate")
-    # for gate_xml in gate_defs_xml:
-    #     gate = OpsaMefXmlRegistry.instance().build(gate_xml)
-    #
-    #     name, tensor = build_basic_event_definition(be_xml, subgraph)
-    #     inputs[name] = tensor
     return inputs, operators, outputs
 
 
@@ -269,34 +273,19 @@ def build_definitions(tree: Element, subgraph: SubGraph):
 # with PLA).
 
 @translation('opsamef_xml', 'canopy_subgraph')
-def opsamef_xml_to_canopy_subgraph2(file_path: str) -> SubGraph:
-    xml_data = read_openpsa_xml(file_path)
-    events_map = build_events_map(xml_data)
-    events, known_probabilities = build_probabilities_from_event_map(events_map, dtype=tf.float32)
-    sampled_probabilities, other = sample_probabilities_bit_packed(probabilities=known_probabilities,
-                                                                   num_samples=2**20,
-                                                                   seed=372,
-                                                                   sampler_dtype=tf.float32,
-                                                                   bitpack_dtype=tf.uint32)
-
-    subgraph: SubGraph = SubGraph()
-    input_tensors_map: OrderedDict[str, Tensor] = register_input_events(subgraph, sampled_probabilities, events_map, axis=0)
-    operations_map, input_tensors_map = build_operations_map(xml_data, subgraph, input_tensors_map)
-    for operator in operations_map.values():
-        subgraph.register_output(operator)
-    #$events = Tensor(tensor=sampled_probabilities, name="sampled_inputs")
-    #subgraph.register_output(events)
-    tf_graph = subgraph.to_tensorflow_model()
-    tf_graph.save("output.h5")
-    return subgraph
-
-
 def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
     xml_data = read_openpsa_xml(file_path)
     subgraph: SubGraph = SubGraph()
     inputs, operators, outputs = build_definitions(xml_data, subgraph)
-    for operator in inputs.values():
+    for operator in operators.values():
         subgraph.register_output(operator)
     tf_graph = subgraph.to_tensorflow_model()
-    tf_graph.save("output.h5")
+    tf_graph.save(f"{file_path.split('/')[-1]}.h5")
+
+    # Measure elapsed time
+    start_time = time.perf_counter()  # Use time.perf_counter() for higher precision
+    results_1d = subgraph.execute_function()()
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time: {elapsed_time:.4f} seconds")
     return subgraph

@@ -53,11 +53,18 @@ class NamedEvent(XMLSerializable):
         super().__init__(*args, **kwargs)
 
     @property
-    def name(self) -> str:
+    def full_name(self) -> str:
+        """Returns the full dotPath string."""
         return self["name"]
+
+    @property
+    def name(self) -> str:
+        """Returns only the last segment of the dotPath."""
+        return self["name"].split('.')[-1]
 
     @name.setter
     def name(self, name_to_set: str):
+        # Assuming name_to_set is the full dotPath
         self["name"] = name_to_set
 
     @name.deleter
