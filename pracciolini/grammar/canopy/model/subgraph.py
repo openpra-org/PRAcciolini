@@ -5,6 +5,8 @@ from pracciolini.grammar.canopy.io import (
     SubGraph as IoSubGraph,
     OpCode as IoOpCode,
 )
+from pracciolini.grammar.canopy.model.layers import BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand, \
+    BitwiseNor, BitwiseXnor
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.buffer_manager import BufferManager
 from pracciolini.grammar.canopy.model.operator import Operator, OperatorArgs
@@ -50,6 +52,27 @@ class SubGraph:
 
         # Define the set of supported opcodes
         self._SUPPORTED_OPCODES = self._BITWISE_OPCODES.keys()
+
+        self.supported_logical_opcodes = {
+            "not": IoOpCode.OpCode.BITWISE_NOT,
+            "and": IoOpCode.OpCode.BITWISE_AND,
+            "or": IoOpCode.OpCode.BITWISE_OR,
+            "xor": IoOpCode.OpCode.BITWISE_XOR,
+            "reshape": IoOpCode.OpCode.RESHAPE,
+            "nand": IoOpCode.OpCode.BITWISE_NAND,
+            "nor": IoOpCode.OpCode.BITWISE_NOR,
+            "xnor": IoOpCode.OpCode.BITWISE_XNOR,
+        }
+
+        self._BITWISE_LAYER_CLASSES = {
+            IoOpCode.OpCode.BITWISE_NOT: BitwiseNot,
+            IoOpCode.OpCode.BITWISE_AND: BitwiseAnd,
+            IoOpCode.OpCode.BITWISE_OR: BitwiseOr,
+            IoOpCode.OpCode.BITWISE_XOR: BitwiseXor,
+            IoOpCode.OpCode.BITWISE_NAND: BitwiseNand,
+            IoOpCode.OpCode.BITWISE_NOR: BitwiseNor,
+            IoOpCode.OpCode.BITWISE_XNOR: BitwiseXnor,
+        }
 
     def add_tensor(self, tensor: Tensor) -> int:
         """
@@ -146,6 +169,7 @@ class SubGraph:
             name=name,
         )
         self.operators.append(operator)
+        return operator
 
     def to_graph(self, builder, buffers: BufferManager) -> int:
         """
@@ -546,87 +570,80 @@ class SubGraph:
         Returns:
             tf.keras.Model: A Keras model representing the subgraph.
         """
-        # Create mapping from our Tensors to tf.Tensor
+        # Create mapping from our Tensors to TensorFlow tensors
         tensor_mapping: Dict[Tensor, tf.Tensor] = {}
 
-        # Map input tensors to tf.keras.Inputs
+        # Map input tensors to tf.keras.Input
         for tensor in self.inputs:
-            # Keras Input requires shape excluding batch dimension
-            # Assuming the tensors have fully defined shapes
-            input_shape = tensor.tf_tensor.shape
-            if input_shape is None or None in input_shape:
-                raise ValueError(f"Input tensor {tensor.name} must have a fully defined shape.")
-
-            # Exclude batch size if necessary; adjust as per your requirements
             tf_input = tf.keras.Input(
-                shape=input_shape,
+                shape=tensor.tf_tensor.shape[1:],  # Exclude batch dimension if necessary
                 dtype=tensor.tf_tensor.dtype,
                 name=tensor.name or f"input_{self._tensor_to_index[tensor]}"
             )
             tensor_mapping[tensor] = tf_input
 
-        # Map constants (tensors not produced by any operator and not inputs)
-        for tensor in self.tensors:
-            if tensor in tensor_mapping:
-                continue
-            elif tensor.tf_tensor is not None:
-                # Map to tf.constant
-                tf_const = tf.constant(
-                    tensor.tf_tensor,
-                    dtype=tensor.tf_tensor.dtype,
-                    name=tensor.name
-                )
-                tensor_mapping[tensor] = tf_const
-            else:
-                # Tensors without a tf_tensor and not mapped yet must be outputs of operators
-                pass  # They will be handled when processing operators
-
         # Process operators
         for operator in self.operators:
-            # Get input tensors from mapping
+            # Get input tensors, mapping constants when necessary
             input_tensors = []
             for idx in operator.inputs:
                 input_tensor = self._index_to_tensor[idx]
                 if input_tensor in tensor_mapping:
+                    # The tensor is already mapped (either an input or an output from a previous operator)
                     input_tensors.append(tensor_mapping[input_tensor])
+                elif input_tensor.tf_tensor is not None:
+                    # The tensor is a constant; create a tf.constant
+                    const_value = input_tensor.tf_tensor.numpy()
+                    const_tf_tensor = tf.constant(const_value, dtype=input_tensor.tf_tensor.dtype)
+                    tensor_mapping[input_tensor] = const_tf_tensor
+                    input_tensors.append(const_tf_tensor)
                 else:
-                    # This should not happen; all tensors should be mapped
-                    raise ValueError(f"Input tensor {input_tensor.name} is not mapped.")
+                    raise ValueError(f"Input tensor {input_tensor.name} is not mapped and has no value.")
 
-            # Apply the operator function
+            # Apply the corresponding custom layer
             opcode = operator.opcode
-            if opcode in self._BITWISE_OPCODES:
-                tf_function = self._BITWISE_OPCODES[opcode]
+            if opcode in self._BITWISE_LAYER_CLASSES:
+                layer_class = self._BITWISE_LAYER_CLASSES[opcode]
+
+                # Instantiate the layer
+                bitwise_layer = layer_class(name=operator.name, dtype=input_tensors[0].dtype)
+
+                # Apply the layer
                 if opcode == IoOpCode.OpCode.BITWISE_NOT:
                     if len(input_tensors) != 1:
                         raise ValueError("BITWISE_NOT operation requires exactly one input.")
-                    result = tf_function(input_tensors[0], name=operator.name)
+                    result = bitwise_layer(input_tensors[0])
                 else:
                     if len(input_tensors) != 2:
                         raise ValueError(f"Operation with opcode {opcode} requires exactly two inputs.")
-                    result = tf_function(input_tensors[0], input_tensors[1], name=operator.name)
+                    result = bitwise_layer(input_tensors)
+
+                # Map output tensor
+                if len(operator.outputs) != 1:
+                    raise ValueError("Only operators with a single output are supported.")
+                output_tensor = self._index_to_tensor[operator.outputs[0]]
+                tensor_mapping[output_tensor] = result
             else:
                 raise NotImplementedError(f"Operator with opcode {opcode} is not implemented in to_tensorflow_model")
-
-            # Map the output tensor
-            if len(operator.outputs) != 1:
-                raise ValueError("Only operators with a single output are supported in to_tensorflow_model")
-            output_tensor = self._index_to_tensor[operator.outputs[0]]
-            tensor_mapping[output_tensor] = result
 
         # Collect the output tensors
         output_tensors = []
         for tensor in self.outputs:
             if tensor in tensor_mapping:
                 output_tensors.append(tensor_mapping[tensor])
+            elif tensor.tf_tensor is not None:
+                # Output tensor is a constant
+                const_value = tensor.tf_tensor.numpy()
+                const_tf_tensor = tf.constant(const_value, dtype=tensor.tf_tensor.dtype)
+                tensor_mapping[tensor] = const_tf_tensor
+                output_tensors.append(const_tf_tensor)
             else:
-                raise ValueError(f"Output tensor {tensor.name} is not mapped.")
+                raise ValueError(f"Output tensor {tensor.name} is not mapped and has no value.")
 
-        # Create the Keras model
+        # Create the model
         model = tf.keras.Model(
             inputs=[tensor_mapping[tensor] for tensor in self.inputs],
             outputs=output_tensors,
             name=self.name
         )
-
         return model
