@@ -8,8 +8,9 @@
       <excludeFolder url="file://$MODULE_DIR$/venv" />
       <excludeFolder url="file://$MODULE_DIR$/py312-venv" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/py-310-venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.12 (pracciolini)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10 (pracciolini)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

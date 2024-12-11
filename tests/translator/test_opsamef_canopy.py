@@ -4,7 +4,6 @@ from typing import Dict, Set, Tuple, Optional
 
 from pracciolini.translator.opsamef_canopy.opsamef_to_canopy import opsamef_xml_to_canopy_subgraph
 from pracciolini.utils.file_ops import FileOps
-from tests import _parallel_test_wrapper
 
 
 class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
@@ -70,7 +69,7 @@ class TestTranslateOpenPSAXmlToExpr(unittest.TestCase):
             with self.subTest(file_path=file_path):
                 self.assertTrue(opsamef_xml_to_canopy_subgraph(file_path),
                                 f"File {file_path} should be valid.")
-        _parallel_test_wrapper(self, self._test_translate_demo, self.flat_fixtures["valid"])
+        #_parallel_test_wrapper(self, self._test_translate_demo, self.flat_fixtures["valid"])
 
 
 if __name__ == '__main__':

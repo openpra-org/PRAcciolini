@@ -1,18 +1,21 @@
-from typing import Dict, Tuple, Any
+from typing import Tuple, Any
+from collections import OrderedDict
 
 from lxml.etree import Element
 import tensorflow as tf
 import tensorflow_probability as tfp
-from tensorflow import Operation, Tensor
+from tensorflow import Operation
 from tensorflow.python.framework.ops import _EagerTensorBase
 
 from pracciolini.core.decorators import translation
+from pracciolini.grammar.canopy.model.subgraph import SubGraph
+from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml
 from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits
 
 
-def build_events_map(tree: Element) -> Dict[str, str]:
+def build_events_map(tree: Element) -> OrderedDict[str, str]:
     """
     Constructs a mapping of event names to their corresponding values from an XML tree.
 
@@ -25,7 +28,7 @@ def build_events_map(tree: Element) -> Dict[str, str]:
     Returns:
         Dict[str, str]: A dictionary where keys are event names and values are their corresponding values.
     """
-    events: Dict[str, str] = dict()
+    events: OrderedDict[str, str] = OrderedDict()
     event_defs_xml = tree.xpath("//define-basic-event | //define-house-event")
     for event_xml in event_defs_xml:
         event = OpsaMefXmlRegistry.instance().build(event_xml)
@@ -34,8 +37,8 @@ def build_events_map(tree: Element) -> Dict[str, str]:
 
 
 def build_probabilities_from_event_map(
-    event_map: Dict[str, str],
-    name: str = "P(x)",
+    event_map: OrderedDict[str, str],
+    name: str = "X",
     dtype: tf.DType = tf.float64
 ) -> Tuple[list, Operation | _EagerTensorBase]:
     """
@@ -89,11 +92,11 @@ def generate_uniform_samples(
 
 def sample_probabilities_bit_packed(
     probabilities: tf.Tensor,
-    num_samples: int = int(1e6),
+    num_samples: int = int(2 ** 20),
     seed: int = 372,
     sampler_dtype: tf.DType = tf.float32,
     bitpack_dtype: tf.DType = tf.uint8
-) -> Tuple[Tensor, Dict[str, Any]]:
+) -> Tuple[tf.Tensor, OrderedDict[str, Any]]:
     """
     Samples probabilities and packs the sampled bits into a compact format.
 
@@ -120,33 +123,48 @@ def sample_probabilities_bit_packed(
     samples = generate_uniform_samples(samples_dim, seed=seed, dtype=sampler_dtype)
     sampled_probabilities: tf.Tensor = probabilities[:, tf.newaxis] >= samples
     packed_samples = pack_tensor_bits(sampled_probabilities, dtype=bitpack_dtype)
-    return packed_samples, {
+    return packed_samples, OrderedDict({
         "seed": seed,
         "num_samples": sample_count,
         "bitpack_dtype": packed_samples.dtype,
         "sampler_dtype": samples.dtype,
         "sampler_shape": samples.shape
-    }
+    })
 
+def register_input_events(graph: SubGraph, stacked_tensor:tf.Tensor, events_map: OrderedDict[str, str], axis=0):
+    unstacked = tf.unstack(stacked_tensor, axis=axis)
+    for tensor_slice, event_name in zip(unstacked, events_map.keys()):
+        tensor = Tensor(tensor=tf.constant(value=tensor_slice, name=event_name), name=event_name)
+        graph.register_input(tensor)
+    return graph
 
-@translation('opsamef_xml', 'canopy')
-def opsamef_xml_to_canopy_subgraph(file_path: str) -> str:
-    """
-    Translates an OPSAMEF XML file into a Canopy subgraph representation.
+def build_fault_trees(tree: Element, graph: SubGraph):
+    events: OrderedDict[str, str] = OrderedDict()
+    ft_defs_xml = tree.xpath("//define-fault-tree")
+    for ft_xml in ft_defs_xml:
+        fault_tree = OpsaMefXmlRegistry.instance().build(ft_xml)
+        #events[event.name] = event.value
+    return events
 
-    Args:
-        file_path (str): The path to the OPSAMEF XML file to be translated.
+@translation('opsamef_xml', 'canopy_subgraph')
+def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
+    xml_data = read_openpsa_xml(file_path)
+    events_map = build_events_map(xml_data)
+    events, known_probabilities = build_probabilities_from_event_map(events_map, dtype=tf.float32)
+    sampled_probabilities, other = sample_probabilities_bit_packed(probabilities=known_probabilities,
+                                                                   num_samples=2**20,
+                                                                   seed=372,
+                                                                   sampler_dtype=tf.float32,
+                                                                   bitpack_dtype=tf.uint32)
 
-    Returns:
-        str: The number of unique events found, represented as a string. Returns "WIP" if an error occurs.
-    """
-    try:
-        xml_data = read_openpsa_xml(file_path)
-        events_map = build_events_map(xml_data)
-        events, known_probabilities = build_probabilities_from_event_map(events_map, dtype=tf.float32)
-        sampled_probabilities, other = sample_probabilities_bit_packed(known_probabilities)
-        print(f"meta: {other}")
-        return str(len(events_map.keys()))
-    except Exception as e:
-        print(f"An error occurred during translation: {e}")
-    return "WIP"
+    subgraph: SubGraph = SubGraph(name="file_path")
+    register_input_events(subgraph, sampled_probabilities, events_map, axis=0)
+
+    build_fault_trees(xml_data, subgraph)
+
+    #$events = Tensor(tensor=sampled_probabilities, name="sampled_inputs")
+    #subgraph.register_output(events)
+    tf_graph = subgraph.to_tensorflow_model()
+    tf_graph.export("output.tflite")
+    tf_graph.save("output.h5")
+    return subgraph
