@@ -538,3 +538,95 @@ class SubGraph:
                 tf.identity(out_tensor, name=f"output_{i}")
 
         return graph
+
+    def to_tensorflow_model(self) -> tf.keras.Model:
+        """
+        Constructs a TensorFlow Keras model that corresponds to this SubGraph.
+
+        Returns:
+            tf.keras.Model: A Keras model representing the subgraph.
+        """
+        # Create mapping from our Tensors to tf.Tensor
+        tensor_mapping: Dict[Tensor, tf.Tensor] = {}
+
+        # Map input tensors to tf.keras.Inputs
+        for tensor in self.inputs:
+            # Keras Input requires shape excluding batch dimension
+            # Assuming the tensors have fully defined shapes
+            input_shape = tensor.tf_tensor.shape
+            if input_shape is None or None in input_shape:
+                raise ValueError(f"Input tensor {tensor.name} must have a fully defined shape.")
+
+            # Exclude batch size if necessary; adjust as per your requirements
+            tf_input = tf.keras.Input(
+                shape=input_shape,
+                dtype=tensor.tf_tensor.dtype,
+                name=tensor.name or f"input_{self._tensor_to_index[tensor]}"
+            )
+            tensor_mapping[tensor] = tf_input
+
+        # Map constants (tensors not produced by any operator and not inputs)
+        for tensor in self.tensors:
+            if tensor in tensor_mapping:
+                continue
+            elif tensor.tf_tensor is not None:
+                # Map to tf.constant
+                tf_const = tf.constant(
+                    tensor.tf_tensor,
+                    dtype=tensor.tf_tensor.dtype,
+                    name=tensor.name
+                )
+                tensor_mapping[tensor] = tf_const
+            else:
+                # Tensors without a tf_tensor and not mapped yet must be outputs of operators
+                pass  # They will be handled when processing operators
+
+        # Process operators
+        for operator in self.operators:
+            # Get input tensors from mapping
+            input_tensors = []
+            for idx in operator.inputs:
+                input_tensor = self._index_to_tensor[idx]
+                if input_tensor in tensor_mapping:
+                    input_tensors.append(tensor_mapping[input_tensor])
+                else:
+                    # This should not happen; all tensors should be mapped
+                    raise ValueError(f"Input tensor {input_tensor.name} is not mapped.")
+
+            # Apply the operator function
+            opcode = operator.opcode
+            if opcode in self._BITWISE_OPCODES:
+                tf_function = self._BITWISE_OPCODES[opcode]
+                if opcode == IoOpCode.OpCode.BITWISE_NOT:
+                    if len(input_tensors) != 1:
+                        raise ValueError("BITWISE_NOT operation requires exactly one input.")
+                    result = tf_function(input_tensors[0], name=operator.name)
+                else:
+                    if len(input_tensors) != 2:
+                        raise ValueError(f"Operation with opcode {opcode} requires exactly two inputs.")
+                    result = tf_function(input_tensors[0], input_tensors[1], name=operator.name)
+            else:
+                raise NotImplementedError(f"Operator with opcode {opcode} is not implemented in to_tensorflow_model")
+
+            # Map the output tensor
+            if len(operator.outputs) != 1:
+                raise ValueError("Only operators with a single output are supported in to_tensorflow_model")
+            output_tensor = self._index_to_tensor[operator.outputs[0]]
+            tensor_mapping[output_tensor] = result
+
+        # Collect the output tensors
+        output_tensors = []
+        for tensor in self.outputs:
+            if tensor in tensor_mapping:
+                output_tensors.append(tensor_mapping[tensor])
+            else:
+                raise ValueError(f"Output tensor {tensor.name} is not mapped.")
+
+        # Create the Keras model
+        model = tf.keras.Model(
+            inputs=[tensor_mapping[tensor] for tensor in self.inputs],
+            outputs=output_tensors,
+            name=self.name
+        )
+
+        return model

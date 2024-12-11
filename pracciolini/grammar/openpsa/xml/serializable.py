@@ -63,9 +63,9 @@ class XMLInfo:
         return __TAG_MAP__.get(tag, alternative)
 
     def __str__(self):
-        str_rep = [self.tag, self.classname, self.module_path, f"attrs: ['{",".join(self.attrs)}']",
-                   f"req_attrs: ['{",".join(self.req_attrs)}']", f"children: ['{",".join(self.children)}']",
-                   f"req_children: ['{",".join(self.req_children)}']"]
+        str_rep = [self.tag, self.classname, self.module_path, f"attrs: ['{','.join(self.attrs)}']",
+                   f"req_attrs: ['{','.join(self.req_attrs)}']", f"children: ['{','.join(self.children)}']",
+                   f"req_children: ['{','.join(self.req_children)}']"]
         return ", ".join(str_rep)
 
 

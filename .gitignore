@@ -186,3 +186,4 @@ dist
 /py312-venv/
 
 core.*
+/*venv*/

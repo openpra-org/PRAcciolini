@@ -38,8 +38,7 @@ dependencies = [
     "lxml",
     "networkx",
     "pandas",
-    "pyeda",
-    "tensorflow",
+    "tensorflow[and-cuda]",
     "tensorflow-probability",
     "tf-keras" # needed by tensorflow-probability
 ]
