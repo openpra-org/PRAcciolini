@@ -1,4 +1,3 @@
-import time
 from typing import Tuple, Any, List
 from collections import OrderedDict
 
@@ -15,7 +14,7 @@ from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml
 from pracciolini.grammar.openpsa.xml.expression.logical import NotExpression
-from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits, tensor_as_bit_vectors
+from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits
 
 
 def build_events_map(tree: Element) -> OrderedDict[str, str]:
@@ -283,9 +282,9 @@ def opsamef_xml_to_canopy_subgraph(file_path: str) -> SubGraph:
     tf_graph.save(f"{file_path.split('/')[-1]}.h5")
 
     # Measure elapsed time
-    start_time = time.perf_counter()  # Use time.perf_counter() for higher precision
-    results_1d = subgraph.execute_function()()
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
-    print(f"Elapsed time: {elapsed_time:.4f} seconds")
+    # start_time = time.perf_counter()  # Use time.perf_counter() for higher precision
+    # results_1d = subgraph.execute_function()()
+    # end_time = time.perf_counter()
+    # elapsed_time = end_time - start_time
+    # print(f"Elapsed time: {elapsed_time:.4f} seconds")
     return subgraph
