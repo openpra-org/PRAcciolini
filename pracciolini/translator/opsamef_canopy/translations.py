@@ -1,15 +1,10 @@
-from collections import OrderedDict
-
 import tensorflow as tf
 from lxml.etree import Element
 
 from pracciolini.core.decorators import translation
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.openpsa.validate import read_openpsa_xml
-from pracciolini.translator.opsamef_canopy.opsamef_to_canopy import build_definitions, \
-    get_event_references_and_definitions, opsamef_ft_xml_to_canopy_subgraph
-
-
+from pracciolini.translator.opsamef_canopy.opsamef_to_canopy import build_definitions
 
 @translation('opsamef_xml', 'canopy_subgraph')
 def opsamef_xml_to_canopy_subgraph(xml_data: Element) -> SubGraph:
@@ -41,9 +36,9 @@ def opsamef_xml_file_to_canopy_keras(file_path: str) -> tf.keras.Model:
 
 @translation('opsamef_xml_file', 'canopy_keras_file')
 def opsamef_xml_file_to_canopy_keras_file(file_path: str) -> str:
-    output_file_path = f"translations/{file_path.split('/')[-1]}.h5"
+    output_file_path = f"translations-v2/{file_path.split('/')[-1]}.h5"
     keras_model: tf.keras.Model = opsamef_xml_file_to_canopy_keras(file_path)
-    keras_model.save(f"translations/{file_path.split('/')[-1]}.h5")
+    keras_model.save(output_file_path)
     return output_file_path
 
 
