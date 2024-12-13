@@ -5,8 +5,8 @@ import tensorflow as tf
 from tensorflow import Operation
 from tensorflow.python.framework.ops import _EagerTensorBase
 
-from pracciolini.grammar.canopy.stats.bitpack import pack_tensor_bits
-from pracciolini.grammar.canopy.stats.sampler import generate_uniform_samples
+from pracciolini.grammar.canopy.probability.bitpack import pack_tensor_bits
+from pracciolini.grammar.canopy.probability.sampler import generate_uniform_samples
 
 
 def build_probabilities_from_event_map(
@@ -77,12 +77,3 @@ def sample_probabilities_bit_packed(
     })
 
 
-def bit_pack_samples(prob, num_samples = int(2 ** 10), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8):
-    bits_per_packed_dtype = tf.dtypes.as_dtype(bitpack_dtype).size * 8
-    sample_count = int(((num_samples + bits_per_packed_dtype - 1) // bits_per_packed_dtype) * bits_per_packed_dtype)
-    samples_dim = (1, sample_count)
-    samples = generate_uniform_samples(samples_dim, seed=seed, dtype=sampler_dtype)
-    probability = tf.constant(value=prob, dtype=sampler_dtype)
-    sampled_probabilities: tf.Tensor = probability >= samples
-    packed_samples = pack_tensor_bits(sampled_probabilities, dtype=bitpack_dtype)
-    return packed_samples

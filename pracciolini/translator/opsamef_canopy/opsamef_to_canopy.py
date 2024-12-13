@@ -13,7 +13,8 @@ from pracciolini.grammar.openpsa.validate import read_openpsa_xml
 from pracciolini.grammar.openpsa.xml.expression.logical import NotExpression, LogicalExpression
 from pracciolini.grammar.openpsa.xml.fault_tree import GateReference
 from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference
-from pracciolini.translator.opsamef_canopy.input_tensor_builder import bit_pack_samples
+from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
+
 
 def build_operation(gate_xml, subgraph, input_tensors_map):
     gate = OpsaMefXmlRegistry.instance().build(gate_xml)

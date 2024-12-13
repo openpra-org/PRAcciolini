@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from functools import reduce
 
-from pracciolini.grammar.canopy.stats.monte_carlo import expectation
+from pracciolini.grammar.canopy.probability.monte_carlo import expectation
 
 
 class Expectation(Layer):

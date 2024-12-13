@@ -13,21 +13,48 @@ def pack_tensor_bits(bool_tensor: tf.Tensor, dtype: tf.DType = tf.uint8) -> tf.T
         A tensor of shape (x, ceil(y / n_bits)) with dtype `dtype`, where n_bits is the bit width of `dtype`.
     """
 
-    valid_dtypes = [tf.uint8, tf.int8, tf.int16, tf.uint16, tf.int32, tf.uint32, tf.int64, tf.uint64]
+    valid_dtypes = [
+        tf.int8,  tf.uint8,
+        tf.int16, tf.uint16,
+        tf.int32, tf.uint32,
+        tf.int64, tf.uint64
+    ]
 
     if dtype not in valid_dtypes:
-        raise tf.errors.InvalidArgumentError(dtype, dtype, f"requested dtype needs to be one of {valid_dtypes}")
+        raise ValueError(f"Requested dtype must be one of {valid_dtypes}")
 
-    if bool_tensor.dtype is not tf.bool:
-        raise tf.errors.InvalidArgumentError(bool_tensor, dtype, "input tensor needs to be a bool tensor!")
+    if bool_tensor.dtype != tf.bool:
+        raise ValueError("Input tensor must be of dtype tf.bool")
 
     # Get the number of bits in the dtype (e.g., 8 for tf.uint8)
     n_bits = tf.dtypes.as_dtype(dtype).size * 8
 
     if n_bits > tf.dtypes.as_dtype(tf.uint64).size * 8:
-        raise tf.errors.InvalidArgumentError("Cannot handle word-size larger than `tf.uint64`")
+        raise ValueError("Cannot handle word-size larger than tf.uint64")
 
-    compute_dtype = tf.uint64
+    # Precompute weights outside the @tf.function
+    weights_list = [1 << (n_bits - 1 - i) for i in range(n_bits)]
+    weights = tf.constant(weights_list, dtype=tf.uint64)
+
+    # Call the inner function
+    packed_tensor = _pack_tensor_bits_impl(bool_tensor=bool_tensor, weights=weights, dtype=dtype)
+
+    return packed_tensor
+
+@tf.function
+def _pack_tensor_bits_impl(bool_tensor: tf.Tensor, weights: tf.Tensor, dtype: tf.DType) -> tf.Tensor:
+    """
+    Internal function to pack bits using TensorFlow operations.
+
+    Args:
+        bool_tensor: A boolean tensor.
+        weights: A tensor containing weights for each bit position.
+
+    Returns:
+        A tensor containing packed integers.
+    """
+
+    n_bits = tf.shape(weights)[0]
 
     # Get the shape of the input tensor
     shape = tf.shape(bool_tensor)
@@ -44,17 +71,13 @@ def pack_tensor_bits(bool_tensor: tf.Tensor, dtype: tf.DType = tf.uint8) -> tf.T
     # Reshape to (x, num_packed_elements_per_row, n_bits)
     reshaped_tensor = tf.reshape(padded_tensor, [x, -1, n_bits])
 
-    # Generate weights for each bit position starting from the MSB
-    weights = tf.constant([1 << (n_bits - 1 - i) for i in range(n_bits)], dtype=compute_dtype)
-
     # Convert bits to integers and apply weights
-    bits = tf.cast(reshaped_tensor, dtype=compute_dtype)
+    bits = tf.cast(reshaped_tensor, dtype=weights.dtype)
     weighted_bits = bits * weights
 
     # Sum over the bits to get packed integers
     packed_ints = tf.reduce_sum(weighted_bits, axis=-1)
 
-    # Cast to the desired dtype
     packed_tensor = tf.cast(packed_ints, dtype=dtype)
 
     return packed_tensor

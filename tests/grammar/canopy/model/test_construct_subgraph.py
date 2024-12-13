@@ -4,6 +4,9 @@ import tensorflow as tf
 
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
+from pracciolini.grammar.canopy.probability.distributions import Bernoulli
+from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
+
 
 class SubGraphConstructionTests(unittest.TestCase):
     def setUp(self):
@@ -16,6 +19,43 @@ class SubGraphConstructionTests(unittest.TestCase):
         self.B = Tensor(tf.constant(samples_b, dtype=tf.uint8), name="B", shape=[1, None])
         self.C = Tensor(tf.constant(samples_c, dtype=tf.uint8), name="C", shape=[1, None])
         self.D = Tensor(tf.constant(samples_d, dtype=tf.uint8), name="D", shape=[1, None])
+
+    def test_input_estimator(self):
+        #num_samples
+        batch_size = 64
+        num_batches = 3
+        bitpacked_samples_tensorspec = bit_pack_samples(
+                            prob=0.5,
+                            num_samples=int(batch_size),
+                            seed=372,
+                            sampler_dtype=tf.float64,
+                            bitpack_dtype=tf.uint8)
+
+        input_x = Tensor(bitpacked_samples_tensorspec, name="input_x")
+        subgraph = SubGraph("direct_sampler")
+        subgraph.register_input(input_x)
+        not_x = subgraph.bitwise_not(input_x, name="not_x")
+        not_not_x = subgraph.bitwise_not(not_x, name="not_not_x")
+        output_x = subgraph.tally(not_not_x)
+
+        model: tf.keras.Model = subgraph.to_tensorflow_model()
+        print(model.summary())
+
+        model.compile(loss="mse")
+        sample_shape = (num_batches, batch_size)
+        x = Bernoulli(probs=0.5, dtype=tf.bool)
+        samples_x = x.sample(sample_shape, pack_bits=tf.uint8)
+        print(samples_x.shape, samples_x)
+        predicted_value = model.predict(x=samples_x, batch_size=8, verbose=2)
+        print(f"Predicted Mean Value: {predicted_value}")
+
+
+
+
+
+
+
+            #model.evaluate(x=sample)
 
     ## TODO::
     ## TODO:
@@ -58,6 +98,8 @@ class SubGraphConstructionTests(unittest.TestCase):
 
         # Convert to a TensorFlow Keras model
         model = subgraph.to_tensorflow_model()
+
+        print(model.summary())
 
         # Use the model to predict
         predicted_value = model.predict(x=[self.A.tf_tensor, self.B.tf_tensor, self.C.tf_tensor, self.D.tf_tensor])
