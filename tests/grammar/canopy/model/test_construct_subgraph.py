@@ -6,6 +6,7 @@ from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.probability.distributions import Bernoulli
 from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
+from pracciolini.grammar.canopy.utils import tensor_as_formatted_bit_vectors
 
 
 class SubGraphConstructionTests(unittest.TestCase):
@@ -22,10 +23,10 @@ class SubGraphConstructionTests(unittest.TestCase):
 
     def test_input_estimator_batched(self):
         subgraph = SubGraph("direct_sampler")
-        input_dtype = tf.uint32
+        input_dtype = tf.uint8
         input_tensor_spec = tf.constant(value=0, shape=(), dtype=input_dtype)
         print(input_tensor_spec.shape)
-        input_x = Tensor(input_tensor_spec, name="input_x") ## process four 32-bit ints at a time
+        input_x = Tensor(input_tensor_spec, name="input_x")
         subgraph.register_input(input_x)
         not_x = subgraph.bitwise_not(input_x, name="not_x")
         not_not_x = subgraph.bitwise_not(not_x, name="not_not_x")
@@ -35,15 +36,34 @@ class SubGraphConstructionTests(unittest.TestCase):
         model: tf.keras.Model = subgraph.to_tensorflow_model()
         print(model.summary())
 
-        model.compile(loss="mse")
+        known_x = 0.1
+        total_samples = 2 ** 28
+        batch_size = 2 ** 26
+        num_batches = int(total_samples / batch_size)
+        x = Bernoulli(probs=known_x, pack_bits_dtype=input_dtype)
 
-        x = Bernoulli(probs=1, dtype=tf.bool)
-        print(x, x.parameter_properties())
-        samples_x = x.sample(34, seed=372, pack_bits=input_dtype)
-        #samples_x = tf.reshape(samples_x, [-1, 8])
-        print(samples_x.shape, samples_x)
-        predicted_value = model.predict(x=[samples_x])
-        print(f"Predicted Mean Value: {predicted_value}")
+        # Create a dataset of samples
+        def generate_samples():
+            for batch_num in range(num_batches):
+                samples_x = x.sample((x.bitpack_bits_per_dtype, batch_size), seed=372 + batch_num)
+                yield samples_x
+
+        dataset = tf.data.Dataset.from_generator(
+            generate_samples,
+            output_signature=tf.TensorSpec(shape=(batch_size,), dtype=input_dtype)
+        )
+
+        # Process the dataset
+        losses = []
+        batch_indices = []
+
+        for batch_num, samples_x in enumerate(dataset):
+            predicted_value = model.predict(x=samples_x, batch_size=batch_size)
+            predicted_mean = predicted_value[1]
+            loss = (predicted_mean - known_x) ** 2
+            losses.append(loss)
+            batch_indices.append(batch_num)
+            print(f"Batch {batch_num}, Predicted Mean: {predicted_mean}, Loss: {loss}")
 
 
     def test_input_estimator(self):
