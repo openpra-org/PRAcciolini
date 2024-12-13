@@ -1,7 +1,7 @@
 import unittest
 import tensorflow as tf
 
-from pracciolini.grammar.canopy.stats.bitpack import pack_tensor_bits
+from pracciolini.grammar.canopy.probability.bitpack import pack_tensor_bits
 
 
 class TestBitPackTensor(unittest.TestCase):
@@ -148,7 +148,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test passing a non-integer dtype to the function
         """
         bool_tensor = tf.constant([[True, False]], dtype=tf.bool)
-        with self.assertRaises(tf.errors.InvalidArgumentError):
+        with self.assertRaises(ValueError):
             pack_tensor_bits(bool_tensor, dtype=tf.float32)
 
     def test_non_boolean_input(self):
@@ -156,7 +156,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test passing a non-boolean tensor as input
         """
         int_tensor = tf.constant([[1, 0, 1, 0]], dtype=tf.int32)
-        with self.assertRaises(tf.errors.InvalidArgumentError):
+        with self.assertRaises(ValueError):
             pack_tensor_bits(int_tensor, dtype=tf.uint8)
 
     def test_rank_greater_than_two(self):
@@ -164,7 +164,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test with an input tensor of rank greater than 2
         """
         bool_tensor = tf.constant([[[True, False], [False, True]]], dtype=tf.bool)
-        with self.assertRaises(tf.errors.InvalidArgumentError):
+        with self.assertRaises(ValueError):
             pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
     def test_zero_dimensional_tensor(self):
@@ -172,7 +172,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test the function with a zero-dimensional tensor
         """
         bool_tensor = tf.constant(True, dtype=tf.bool)
-        with self.assertRaises(tf.errors.InvalidArgumentError):
+        with self.assertRaises(ValueError):
             pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
     def test_shape_mismatch(self):
@@ -180,7 +180,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test when the input tensor shape is inappropriate (e.g., 1D tensor)
         """
         bool_tensor = tf.constant([True, False, True], dtype=tf.bool)
-        with self.assertRaises(tf.errors.InvalidArgumentError):
+        with self.assertRaises(ValueError):
             pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
     def test_large_dtype(self):

@@ -13,7 +13,7 @@ from pracciolini.grammar.canopy.io import (
 )
 from pracciolini.grammar.canopy.model.layers import BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand, \
     BitwiseNor, BitwiseXnor, Expectation
-from pracciolini.grammar.canopy.stats import monte_carlo
+from pracciolini.grammar.canopy.probability import monte_carlo
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.buffer_manager import BufferManager
 from pracciolini.grammar.canopy.model.operator import Operator, OperatorArgs

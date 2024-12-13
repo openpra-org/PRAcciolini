@@ -3,6 +3,9 @@ from typing import Tuple
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from pracciolini.grammar.canopy.probability.bitpack import pack_tensor_bits
+
+
 @tf.function
 def generate_uniform_samples(
     dim: Tuple | tf.TensorShape,
@@ -30,3 +33,14 @@ def generate_uniform_samples(
     uniform_dist = tfp.distributions.Uniform(low=tf.cast(low, dtype=dtype), high=tf.cast(high, dtype=dtype))
     uniform_samples = uniform_dist.sample(sample_shape=dim, seed=seed)
     return uniform_samples
+
+
+def bit_pack_samples(prob, num_samples = int(2 ** 10), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8):
+    bits_per_packed_dtype = tf.dtypes.as_dtype(bitpack_dtype).size * 8
+    sample_count = int(((num_samples + bits_per_packed_dtype - 1) // bits_per_packed_dtype) * bits_per_packed_dtype)
+    samples_dim = (1, sample_count)
+    samples = generate_uniform_samples(samples_dim, seed=seed, dtype=sampler_dtype)
+    probability = tf.constant(value=prob, dtype=sampler_dtype)
+    sampled_probabilities: tf.Tensor = probability >= samples
+    packed_samples = pack_tensor_bits(sampled_probabilities, dtype=bitpack_dtype)
+    return packed_samples
