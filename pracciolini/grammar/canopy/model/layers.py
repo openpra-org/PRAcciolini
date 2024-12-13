@@ -2,6 +2,31 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from functools import reduce
 
+from pracciolini.grammar.canopy.stats.monte_carlo import expectation
+
+
+class Expectation(Layer):
+    """
+    Custom Keras Layer that computes the expected value (mean) of bits set to 1 in the input tensor.
+
+    This layer wraps the 'expectation_impl' function to be used within a Keras model.
+    """
+
+    def __init__(self, **kwargs):
+        super(Expectation, self).__init__(**kwargs)
+
+    def call(self, inputs):
+        """
+        Invokes the layer on the input tensor.
+
+        Args:
+            inputs (tf.Tensor): Input tensor.
+
+        Returns:
+            tf.Tensor: Output tensor after computing the expected value.
+        """
+        return expectation(inputs)
+
 class BitwiseNot(Layer):
     def __init__(self, **kwargs):
         super(BitwiseNot, self).__init__(**kwargs)

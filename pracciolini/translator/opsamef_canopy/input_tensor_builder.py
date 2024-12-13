@@ -2,11 +2,11 @@ from collections import OrderedDict
 from typing import Tuple, Any
 
 import tensorflow as tf
-import tensorflow_probability as tfp
 from tensorflow import Operation
 from tensorflow.python.framework.ops import _EagerTensorBase
 
-from pracciolini.translator.opsamef_canopy.sampler import pack_tensor_bits
+from pracciolini.grammar.canopy.stats.bitpack import pack_tensor_bits
+from pracciolini.grammar.canopy.stats.sampler import generate_uniform_samples
 
 
 def build_probabilities_from_event_map(
@@ -33,34 +33,6 @@ def build_probabilities_from_event_map(
     cast_values = [float(value) for value in event_map.values()]
     probabilities = tf.constant(value=cast_values, name=name, dtype=dtype)
     return list(event_map.keys()), probabilities
-
-
-def generate_uniform_samples(
-    dim: Tuple | tf.TensorShape,
-    low: float = 0,
-    high: float = 1,
-    seed: int = 372,
-    dtype: tf.DType = tf.float64
-) -> tf.Tensor:
-    """
-    Generates uniformly distributed samples within a specified range and shape.
-
-    This function creates a uniform distribution using TensorFlow Probability and samples
-    values based on the provided dimensions, seed, and data type.
-
-    Args:
-        dim (Tuple | tf.TensorShape): The shape of the desired sample tensor.
-        low (float, optional): The lower bound of the uniform distribution. Defaults to 0.
-        high (float, optional): The upper bound of the uniform distribution. Defaults to 1.
-        seed (int, optional): Seed for random number generation to ensure reproducibility. Defaults to 372.
-        dtype (tf.DType, optional): The data type of the generated samples. Defaults to tf.float64.
-
-    Returns:
-        tf.Tensor: A tensor containing uniformly distributed samples.
-    """
-    uniform_dist = tfp.distributions.Uniform(low=tf.cast(low, dtype=dtype), high=tf.cast(high, dtype=dtype))
-    uniform_samples = uniform_dist.sample(sample_shape=dim, seed=seed)
-    return uniform_samples
 
 
 def sample_probabilities_bit_packed(

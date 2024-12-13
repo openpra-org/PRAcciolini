@@ -12,7 +12,8 @@ from pracciolini.grammar.canopy.io import (
     DAGs as IoDAGs,
 )
 from pracciolini.grammar.canopy.model.layers import BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand, \
-    BitwiseNor, BitwiseXnor
+    BitwiseNor, BitwiseXnor, Expectation
+from pracciolini.grammar.canopy.stats import monte_carlo
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.buffer_manager import BufferManager
 from pracciolini.grammar.canopy.model.operator import Operator, OperatorArgs
@@ -56,8 +57,14 @@ class SubGraph:
             IoOpCode.OpCode.BITWISE_XNOR: lambda a, b: tf.bitwise.invert(tf.bitwise.bitwise_xor(a, b)),
         }
 
+        # Mapping from OpCode to TensorFlow functions for statistical operations
+        self._STATISTICAL_OPCODES = {
+            IoOpCode.OpCode.MC_EXPECT_VAL: monte_carlo.expectation,
+            IoOpCode.OpCode.MC_VAR_LOSS: monte_carlo.variational_loss,
+        }
+
         # Define the set of supported opcodes
-        self._SUPPORTED_OPCODES = self._BITWISE_OPCODES.keys()
+        self._SUPPORTED_OPCODES = set(self._BITWISE_OPCODES.keys()) | set(self._STATISTICAL_OPCODES.keys())
 
         self.supported_logical_opcodes = {
             "not": IoOpCode.OpCode.BITWISE_NOT,
@@ -68,6 +75,7 @@ class SubGraph:
             "nand": IoOpCode.OpCode.BITWISE_NAND,
             "nor": IoOpCode.OpCode.BITWISE_NOR,
             "xnor": IoOpCode.OpCode.BITWISE_XNOR,
+            "tally": IoOpCode.OpCode.MC_EXPECT_VAL
         }
 
         self._BITWISE_LAYER_CLASSES = {
@@ -78,6 +86,10 @@ class SubGraph:
             IoOpCode.OpCode.BITWISE_NAND: BitwiseNand,
             IoOpCode.OpCode.BITWISE_NOR: BitwiseNor,
             IoOpCode.OpCode.BITWISE_XNOR: BitwiseXnor,
+        }
+
+        self._STATISTICAL_LAYER_CLASSES = {
+            IoOpCode.OpCode.MC_EXPECT_VAL: Expectation,
         }
 
     def add_tensor(self, tensor: Tensor) -> int:
@@ -136,8 +148,8 @@ class SubGraph:
 
         Args:
             opcode (IoOpCode.OpCode): The opcode of the operator.
-            input_tensors (List[Tensor]): The input tensors.
-            output_tensors (List[Tensor]): The output tensors.
+            input_tensors (List[Tensor]): Inputs to this operator. [note, not the same as SubGraph input tensors]
+            output_tensors (List[Tensor]): Outputs from this operator. [note, not the same as SubGraph output tensors]
             args (Optional[OperatorArgs]): The operator arguments.
             name (Optional[str]): Optional name of the operator.
 
@@ -147,30 +159,29 @@ class SubGraph:
         """
         # Validate the opcode
         if opcode not in self._SUPPORTED_OPCODES:
-            print(self._SUPPORTED_OPCODES)
             raise NotImplementedError(f"Operator with opcode {opcode} is not implemented")
 
         # Ensure tensors are added to the subgraph
-        input_indices = [self.add_tensor(tensor) for tensor in input_tensors]
-        output_indices = [self.add_tensor(tensor) for tensor in output_tensors]
+        op_input_indices = [self.add_tensor(tensor) for tensor in input_tensors]
+        op_output_indices = [self.add_tensor(tensor) for tensor in output_tensors]
 
         # Check for circular dependencies
-        for output_tensor in output_tensors:
-            if self._creates_cycle(output_tensor, input_tensors):
+        for op_output_tensor in output_tensors:
+            if self._creates_cycle(op_output_tensor, input_tensors):
                 raise ValueError(
-                    f"Adding operator '{name}' creates a circular dependency involving tensor '{output_tensor.name}'."
+                    f"Adding operator '{name}' creates a circular dependency involving tensor '{op_output_tensor.name}'."
                 )
 
         # Update dependencies
-        for output_tensor in output_tensors:
-            self._dependencies[output_tensor] = set()
-            for input_tensor in input_tensors:
-                self._dependencies[input_tensor].add(output_tensor)
+        for op_output_tensor in output_tensors:
+            self._dependencies[op_output_tensor] = set()
+            for op_input_tensor in input_tensors:
+                self._dependencies[op_input_tensor].add(op_output_tensor)
 
         operator = Operator(
             opcode=opcode,
-            inputs=input_indices,
-            outputs=output_indices,
+            inputs=op_input_indices,
+            outputs=op_output_indices,
             args=args,
             name=name,
         )
@@ -284,6 +295,41 @@ class SubGraph:
             subgraph.operators.append(operator)
 
         return subgraph
+
+    # todo: should also contain arguments for variance, ci_intervals, variational_loss, etc
+    def tally(self, operand: Tensor, register_as_output: bool = True, name: Optional[str] = None) -> Tensor:
+        """
+        Adds a 'tally' operator to the subgraph, calculating the expected value of bits set to 1.
+
+        Args:
+            operand (Tensor): The input tensor.
+            register_as_output (bool): Make this an output tensor (default is True)
+            name (Optional[str]): Optional name for the operation.
+
+        Returns:
+            Tensor: The resulting tensor containing the expected mean value.
+        """
+
+        # Create the output tensor
+        output_tensor = Tensor(
+            tensor=monte_carlo.expectation(operand.tf_tensor),
+            name=name,
+        )
+
+        # Add the operator to the subgraph. This method also adds the input and output to the subgraph if they don't
+        # already exist
+        self.add_operator(
+            opcode=IoOpCode.OpCode.MC_EXPECT_VAL,
+            input_tensors=[operand],
+            output_tensors=[output_tensor],
+            args=None,
+            name=name,
+        )
+
+        if register_as_output:
+            self.register_output(output_tensor)
+
+        return output_tensor
 
     def bitwise(self, opcode: IoOpCode, operands: List[Tensor], name: Optional[str] = None) -> Tensor:
         """
@@ -587,6 +633,16 @@ class SubGraph:
                 if len(input_values) < 2:
                     raise ValueError(f"Operation with opcode {opcode} requires at least two inputs.")
                 return reduce(tf_function, input_values)
+        # Handle statistical operations
+        elif opcode in self._STATISTICAL_OPCODES:
+            tf_function = self._STATISTICAL_OPCODES[opcode]
+            # For MC_EXPECT_VAL, we expect exactly one input
+            if opcode == IoOpCode.OpCode.MC_EXPECT_VAL:
+                if len(input_values) != 1:
+                    raise ValueError("MC_EXPECT_VAL operation requires exactly one input.")
+                return tf_function(input_values[0])
+            else:
+                raise NotImplementedError(f"Statistical operator with opcode {opcode} is not implemented")
         else:
             raise NotImplementedError(f"Operator with opcode {opcode} is not implemented")
 
@@ -785,6 +841,17 @@ class SubGraph:
                     # Reduce over input tensors using the layer
                     result = reduce(lambda acc, x: bitwise_layer([acc, x]), input_tensors)
 
+                # Map output tensor
+                if len(operator.outputs) != 1:
+                    raise ValueError("Only operators with a single output are supported.")
+                output_tensor = self._index_to_tensor[operator.outputs[0]]
+                tensor_mapping[output_tensor] = result
+            elif opcode == IoOpCode.OpCode.MC_EXPECT_VAL:
+                if len(input_tensors) != 1:
+                    raise ValueError("MC_EXPECT_VAL operation requires exactly one input.")
+                # Use the Expectation Layer
+                expectation_layer = Expectation(name=operator.name)
+                result = expectation_layer(input_tensors[0])
                 # Map output tensor
                 if len(operator.outputs) != 1:
                     raise ValueError("Only operators with a single output are supported.")
