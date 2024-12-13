@@ -81,7 +81,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         f = subgraph.register_input(Tensor(input_tensor_spec, name="f"))
 
         # intermediates
-        f_11 = subgraph.bitwise_or(a, b, c, d, name="f_11")
+        f_11 = subgraph.bitwise_and(a, b, c, d, name="f_11")
         f_13 = subgraph.bitwise_xor(e, f, name="f_13")
         f_12 = subgraph.bitwise_not(d, name="f_12")
         f_21 = subgraph.bitwise_and(f_12, f_11, name="f_21")
