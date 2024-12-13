@@ -1,5 +1,5 @@
 import tensorflow as tf
-import numpy as np
+
 
 def pack_tensor_bits(bool_tensor: tf.Tensor, dtype: tf.DType = tf.uint8) -> tf.Tensor:
     """
@@ -58,26 +58,3 @@ def pack_tensor_bits(bool_tensor: tf.Tensor, dtype: tf.DType = tf.uint8) -> tf.T
     packed_tensor = tf.cast(packed_ints, dtype=dtype)
 
     return packed_tensor
-
-def tensor_as_bit_vectors(tensor):
-    """
-    Accepts a tensor and prints its elements as bit-vectors.
-
-    Args:
-        tensor: A TensorFlow tensor.
-    """
-
-    # Get the dtype of the tensor
-    dtype = tensor.dtype
-
-    # Determine the bit-width of the data type
-    bit_width = tf.dtypes.as_dtype(dtype).size * 8
-
-    # Convert tensor to numpy array
-    numpy_array = tensor.numpy()
-
-    # Create a vectorized function to format each element
-    vectorized_format = np.vectorize(lambda x: f'0b{format(x, f"0{bit_width}b")}')
-
-    # Apply the vectorized function to the numpy array
-    return vectorized_format(numpy_array)
