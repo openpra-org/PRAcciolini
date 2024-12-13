@@ -123,6 +123,7 @@ class SubGraph:
         self.add_tensor(tensor)
         if tensor not in self.inputs:
             self.inputs.append(tensor)
+        return tensor
 
     def register_output(self, tensor: Tensor):
         """
@@ -134,6 +135,7 @@ class SubGraph:
         self.add_tensor(tensor)
         if tensor not in self.outputs:
             self.outputs.append(tensor)
+        return tensor
 
     def add_operator(
         self,

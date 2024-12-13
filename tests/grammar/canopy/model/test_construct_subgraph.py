@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 import tensorflow as tf
 
 from pracciolini.grammar.canopy.model.tensor import Tensor
@@ -38,7 +39,7 @@ class SubGraphConstructionTests(unittest.TestCase):
 
         known_x = 0.1
         total_samples = 2 ** 28
-        batch_size = 2 ** 26
+        batch_size = 2 ** 24
         num_batches = int(total_samples / batch_size)
         x = Bernoulli(probs=known_x, pack_bits_dtype=input_dtype)
 
@@ -57,6 +58,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         losses = []
         batch_indices = []
 
+
         for batch_num, samples_x in enumerate(dataset):
             predicted_value = model.predict(x=samples_x, batch_size=batch_size)
             predicted_mean = predicted_value[1]
@@ -65,6 +67,97 @@ class SubGraphConstructionTests(unittest.TestCase):
             batch_indices.append(batch_num)
             print(f"Batch {batch_num}, Predicted Mean: {predicted_mean}, Loss: {loss}")
 
+    def test_input_estimator_batched_basic_expr(self):
+        input_dtype = tf.uint8
+        bitpack_bits_per_dtype = 8
+        ## todo:: change the TEnsor constructor to  accept just a tf.tensorspec
+        input_tensor_spec = tf.constant(value=0, shape=(), dtype=input_dtype)
+        subgraph = SubGraph(name="F")
+        a = subgraph.register_input(Tensor(input_tensor_spec, name="a"))
+        b = subgraph.register_input(Tensor(input_tensor_spec, name="b"))
+        c = subgraph.register_input(Tensor(input_tensor_spec, name="c"))
+        d = subgraph.register_input(Tensor(input_tensor_spec, name="d"))
+        e = subgraph.register_input(Tensor(input_tensor_spec, name="e"))
+        f = subgraph.register_input(Tensor(input_tensor_spec, name="f"))
+
+        # intermediates
+        f_11 = subgraph.bitwise_or(a, b, c, d, name="f_11")
+        f_13 = subgraph.bitwise_xor(e, f, name="f_13")
+        f_12 = subgraph.bitwise_not(d, name="f_12")
+        f_21 = subgraph.bitwise_and(f_12, f_11, name="f_21")
+        # output
+        f = subgraph.bitwise_or(f_21, f_13, name="F")
+        P_f = subgraph.tally(f, name="P_F")
+
+        model: tf.keras.Model = subgraph.to_tensorflow_model()
+        print(model.summary())
+
+        model.save("six_operands.h5")
+        known_x = 0.1
+        total_samples = 2 ** 27
+        batch_size = 2 ** 24
+        num_batches = int(total_samples / batch_size)
+
+        P_a = Bernoulli(probs=0.01, pack_bits_dtype=input_dtype)
+        P_b = Bernoulli(probs=0.02, pack_bits_dtype=input_dtype)
+        P_c = Bernoulli(probs=0.03, pack_bits_dtype=input_dtype)
+        P_d = Bernoulli(probs=0.04, pack_bits_dtype=input_dtype)
+        P_e = Bernoulli(probs=0.001, pack_bits_dtype=input_dtype)
+        P_f = Bernoulli(probs=0.002, pack_bits_dtype=input_dtype)
+
+        # Create a dataset of samples
+        def generate_samples():
+            for batch_num in range(num_batches):
+                samples_a = P_a.sample((bitpack_bits_per_dtype, batch_size))
+                samples_b = P_b.sample((bitpack_bits_per_dtype, batch_size))
+                samples_c = P_c.sample((bitpack_bits_per_dtype, batch_size))
+                samples_d = P_d.sample((bitpack_bits_per_dtype, batch_size))
+                samples_e = P_e.sample((bitpack_bits_per_dtype, batch_size))
+                samples_f = P_f.sample((bitpack_bits_per_dtype, batch_size))
+                yield samples_a, samples_b, samples_c, samples_d, samples_e, samples_f
+
+        dataset = tf.data.Dataset.from_generator(
+            generate_samples,
+            output_signature=(
+                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
+                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
+                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
+                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
+                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
+                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
+            )
+        )
+
+        # Process the dataset
+        losses = []
+        batch_indices = []
+
+        cumulative_sum = 0.0
+        total_samples_processed = 0
+
+        for batch_num, (samples_a, samples_b, samples_c, samples_d, samples_e, samples_f) in enumerate(dataset):
+            predicted_value = model.predict(
+                x=[samples_a, samples_b, samples_c, samples_d, samples_e, samples_f],
+                batch_size=batch_size
+            )
+
+            # Assuming predicted_value is a numpy array or can be converted to one
+            batch_sum = predicted_value
+            #batch_size = predicted_value.shape[0]  # Number of samples in the batch
+
+            # Update cumulative sum and total samples
+            cumulative_sum += batch_sum
+            total_samples_processed += 1
+
+            # Compute cumulative mean
+            cumulative_mean = cumulative_sum / total_samples_processed
+
+            # Compute loss based on cumulative mean
+            loss = (cumulative_mean - known_x) ** 2
+            losses.append(loss)
+            batch_indices.append(batch_num)
+
+            print(f"Batch {batch_num}, predicted {predicted_value} Cumulative Mean: {cumulative_mean}, Loss: {loss}")
 
     def test_input_estimator(self):
         #num_samples
