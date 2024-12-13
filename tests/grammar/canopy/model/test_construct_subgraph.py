@@ -20,10 +20,36 @@ class SubGraphConstructionTests(unittest.TestCase):
         self.C = Tensor(tf.constant(samples_c, dtype=tf.uint8), name="C", shape=[1, None])
         self.D = Tensor(tf.constant(samples_d, dtype=tf.uint8), name="D", shape=[1, None])
 
+    def test_input_estimator_batched(self):
+        subgraph = SubGraph("direct_sampler")
+        input_dtype = tf.uint32
+        input_tensor_spec = tf.constant(value=0, shape=(), dtype=input_dtype)
+        print(input_tensor_spec.shape)
+        input_x = Tensor(input_tensor_spec, name="input_x") ## process four 32-bit ints at a time
+        subgraph.register_input(input_x)
+        not_x = subgraph.bitwise_not(input_x, name="not_x")
+        not_not_x = subgraph.bitwise_not(not_x, name="not_not_x")
+        subgraph.register_output(not_not_x)
+        output_x = subgraph.tally(not_not_x)
+
+        model: tf.keras.Model = subgraph.to_tensorflow_model()
+        print(model.summary())
+
+        model.compile(loss="mse")
+
+        x = Bernoulli(probs=1, dtype=tf.bool)
+        print(x, x.parameter_properties())
+        samples_x = x.sample(34, seed=372, pack_bits=input_dtype)
+        #samples_x = tf.reshape(samples_x, [-1, 8])
+        print(samples_x.shape, samples_x)
+        predicted_value = model.predict(x=[samples_x])
+        print(f"Predicted Mean Value: {predicted_value}")
+
+
     def test_input_estimator(self):
         #num_samples
         batch_size = 64
-        num_batches = 3
+        num_batches = 30
         bitpacked_samples_tensorspec = bit_pack_samples(
                             prob=0.5,
                             num_samples=int(batch_size),
@@ -36,6 +62,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         subgraph.register_input(input_x)
         not_x = subgraph.bitwise_not(input_x, name="not_x")
         not_not_x = subgraph.bitwise_not(not_x, name="not_not_x")
+        subgraph.register_output(not_not_x)
         output_x = subgraph.tally(not_not_x)
 
         model: tf.keras.Model = subgraph.to_tensorflow_model()
@@ -44,9 +71,10 @@ class SubGraphConstructionTests(unittest.TestCase):
         model.compile(loss="mse")
         sample_shape = (num_batches, batch_size)
         x = Bernoulli(probs=0.5, dtype=tf.bool)
-        samples_x = x.sample(sample_shape, pack_bits=tf.uint8)
-        print(samples_x.shape, samples_x)
-        predicted_value = model.predict(x=samples_x, batch_size=8, verbose=2)
+        samples_x = x.sample(sample_shape, seed=372, pack_bits=tf.uint8)
+        samples_x = tf.reshape(samples_x, [-1, 8])
+        print(samples_x.shape)
+        predicted_value = model.predict(x=samples_x)
         print(f"Predicted Mean Value: {predicted_value}")
 
 
@@ -180,34 +208,28 @@ class SubGraphConstructionTests(unittest.TestCase):
 
         # Create input tensor with samples
         samples = tf.constant([
-            [0b00100100],
-            [0b01001001],
-            [0b10010010],
+            [0b11110000],
+            [0b01010101],
+            [0b10000111],
             # You can add more samples here
         ], dtype=tf.uint8)
         input_tensor = Tensor(samples, name="input_samples")
         subgraph.register_input(input_tensor)
 
         # Apply expectation operator
-        expected_value_tensor = subgraph.expectation(input_tensor, name="ExpectedValue")
-
-        # Register output
-        subgraph.register_output(expected_value_tensor)
+        expected_value_tensor = subgraph.tally(input_tensor, name="ExpectedValue")
 
         # Execute the subgraph
         func = subgraph.execute_function()
 
         # Execute the function
-        result = func(samples)
-        actual_value = result[0].numpy()
-
-        # Compute expected value manually
-        pop_counts = tf.raw_ops.PopulationCount(x=samples)
-        total_bits_per_sample = tf.reduce_sum(tf.cast(pop_counts, tf.float32), axis=1)
-        expected_mean = tf.reduce_mean(total_bits_per_sample).numpy()
+        results = func(samples)
+        subgraph_computed_value = results[0].numpy()
+        tf_keras_computed_value = subgraph.to_tensorflow_model().predict(x=[samples])
 
         # Assert that the computed expected value matches the manual computation
-        self.assertAlmostEqual(actual_value, expected_mean, places=5)
+        self.assertAlmostEqual(subgraph_computed_value, 0.5, places=5)
+        self.assertAlmostEqual(tf_keras_computed_value, 0.5, places=5)
 
     def test_compare_1d_with_concat_tensors(self):
         subgraph_1d = SubGraph(name="1D")
