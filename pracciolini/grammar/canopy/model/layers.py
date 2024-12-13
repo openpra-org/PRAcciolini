@@ -38,16 +38,25 @@ class BitwiseNot(Layer):
             inputs = inputs[0]
         return tf.bitwise.invert(inputs)
 
+
 class BitwiseAnd(Layer):
     def __init__(self, **kwargs):
         super(BitwiseAnd, self).__init__(**kwargs)
 
     def call(self, inputs):
         if not isinstance(inputs, (list, tuple)):
-            raise ValueError("BitwiseAnd Layer requires a list of input tensors.")
+            raise ValueError("BitwiseAnd layer requires a list of input tensors.")
         if len(inputs) < 2:
-            raise ValueError("BitwiseAnd Layer requires at least two input tensors.")
-        return reduce(tf.bitwise.bitwise_and, inputs)
+            raise ValueError("BitwiseAnd layer requires at least two input tensors.")
+        return self.compute_bitwise_and(inputs)
+
+    @tf.function
+    def compute_bitwise_and(self, inputs):
+        # Stack inputs along a new dimension to create a single tensor.
+        stacked_inputs = tf.stack(inputs)
+        # Use tf.foldl to perform the bitwise AND reduction efficiently.
+        result = tf.foldl(lambda a, b: tf.bitwise.bitwise_and(a, b), stacked_inputs)
+        return result
 
 class BitwiseOr(Layer):
     def __init__(self, **kwargs):
@@ -55,10 +64,18 @@ class BitwiseOr(Layer):
 
     def call(self, inputs):
         if not isinstance(inputs, (list, tuple)):
-            raise ValueError("BitwiseOr Layer requires a list of input tensors.")
+            raise ValueError("BitwiseOr layer requires a list of input tensors.")
         if len(inputs) < 2:
-            raise ValueError("BitwiseOr Layer requires at least two input tensors.")
-        return reduce(tf.bitwise.bitwise_or, inputs)
+            raise ValueError("BitwiseOr layer requires at least two input tensors.")
+        return self.compute_bitwise_or(inputs)
+
+    @tf.function
+    def compute_bitwise_or(self, inputs):
+        # Stack inputs along a new dimension to create a single tensor.
+        stacked_inputs = tf.stack(inputs)
+        # Use tf.foldl to perform the bitwise AND reduction efficiently.
+        result = tf.foldl(lambda a, b: tf.bitwise.bitwise_or(a, b), stacked_inputs)
+        return result
 
 class BitwiseXor(Layer):
     def __init__(self, **kwargs):
