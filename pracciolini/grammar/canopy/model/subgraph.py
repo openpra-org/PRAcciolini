@@ -11,12 +11,16 @@ from pracciolini.grammar.canopy.io import (
     OpCode as IoOpCode,
     DAGs as IoDAGs,
 )
-from pracciolini.grammar.canopy.model.layers import BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand, \
-    BitwiseNor, BitwiseXnor, Expectation
-from pracciolini.grammar.canopy.probability import monte_carlo
+from pracciolini.grammar.canopy.model.layers.monte_carlo import (BernoulliSamplingLayer, BitpackedBernoulliSamplingLayer,
+                                                                 Expectation)
+from pracciolini.grammar.canopy.model.layers.bitwise import (BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand,
+                                                             BitwiseNor,
+                                                             BitwiseXnor)
+from pracciolini.grammar.canopy.probability import monte_carlo, distributions
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.buffer_manager import BufferManager
 from pracciolini.grammar.canopy.model.operator import Operator, OperatorArgs
+from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
 
 
 class SubGraph:
@@ -57,6 +61,11 @@ class SubGraph:
             IoOpCode.OpCode.BITWISE_XNOR: lambda a, b: tf.bitwise.invert(tf.bitwise.bitwise_xor(a, b)),
         }
 
+        self._SAMPLER_OPCODES = {
+            IoOpCode.OpCode.MC_BERNOULLI_SAMPLES: distributions.sample_bernoulli,
+            IoOpCode.OpCode.MC_BITPACK_BERNOULLI_SAMPLES: distributions.sample_bitpack_bernoulli,
+        }
+
         # Mapping from OpCode to TensorFlow functions for statistical operations
         self._STATISTICAL_OPCODES = {
             IoOpCode.OpCode.MC_EXPECT_VAL: monte_carlo.expectation,
@@ -64,7 +73,7 @@ class SubGraph:
         }
 
         # Define the set of supported opcodes
-        self._SUPPORTED_OPCODES = set(self._BITWISE_OPCODES.keys()) | set(self._STATISTICAL_OPCODES.keys())
+        self._SUPPORTED_OPCODES = set(self._BITWISE_OPCODES.keys()) | set(self._STATISTICAL_OPCODES.keys()) | set(self._SAMPLER_OPCODES)
 
         self.supported_logical_opcodes = {
             "not": IoOpCode.OpCode.BITWISE_NOT,
@@ -75,7 +84,8 @@ class SubGraph:
             "nand": IoOpCode.OpCode.BITWISE_NAND,
             "nor": IoOpCode.OpCode.BITWISE_NOR,
             "xnor": IoOpCode.OpCode.BITWISE_XNOR,
-            "tally": IoOpCode.OpCode.MC_EXPECT_VAL
+            "tally": IoOpCode.OpCode.MC_EXPECT_VAL,
+            "event": IoOpCode.OpCode.MC_BITPACK_BERNOULLI_SAMPLES,
         }
 
         self._BITWISE_LAYER_CLASSES = {
@@ -90,6 +100,11 @@ class SubGraph:
 
         self._STATISTICAL_LAYER_CLASSES = {
             IoOpCode.OpCode.MC_EXPECT_VAL: Expectation,
+        }
+
+        self._SAMPLER_LAYER_CLASSES = {
+            IoOpCode.OpCode.MC_BERNOULLI_SAMPLES: BernoulliSamplingLayer,
+            IoOpCode.OpCode.MC_BITPACK_BERNOULLI_SAMPLES: BitpackedBernoulliSamplingLayer,
         }
 
     def add_tensor(self, tensor: Tensor) -> int:
@@ -190,113 +205,24 @@ class SubGraph:
         self.operators.append(operator)
         return operator
 
-    def to_graph(self, builder, buffers: BufferManager) -> int:
-        """
-        Serializes the subgraph to FlatBuffers using the builder.
-
-        Args:
-            builder (flatbuffers.Builder): The FlatBuffers builder.
-            buffers (BufferManager): The buffer manager for data buffers.
-
-        Returns:
-            int: The offset in the FlatBuffer where the SubGraph is stored.
-        """
-        # Serialize tensors
-        tensor_offsets = []
-        for tensor in self.tensors:
-            tensor_offset = tensor.to_graph(builder, buffers)
-            tensor_offsets.append(tensor_offset)
-
-        # Build tensors vector
-        IoSubGraph.SubGraphStartTensorsVector(builder, len(tensor_offsets))
-        for offset in reversed(tensor_offsets):
-            builder.PrependUOffsetTRelative(offset)
-        tensors_vector = builder.EndVector(len(tensor_offsets))
-
-        # Serialize inputs
-        input_indices = [self._tensor_to_index[tensor] for tensor in self.inputs]
-        IoSubGraph.SubGraphStartInputsVector(builder, len(input_indices))
-        for idx in reversed(input_indices):
-            builder.PrependInt32(idx)
-        inputs_vector = builder.EndVector(len(input_indices))
-
-        # Serialize outputs
-        output_indices = [self._tensor_to_index[tensor] for tensor in self.outputs]
-        IoSubGraph.SubGraphStartOutputsVector(builder, len(output_indices))
-        for idx in reversed(output_indices):
-            builder.PrependInt32(idx)
-        outputs_vector = builder.EndVector(len(output_indices))
-
-        # Serialize operators
-        operator_offsets = []
-        for operator in self.operators:
-            operator_offset = operator.to_graph(builder)
-            operator_offsets.append(operator_offset)
-
-        IoSubGraph.SubGraphStartOperatorsVector(builder, len(operator_offsets))
-        for offset in reversed(operator_offsets):
-            builder.PrependUOffsetTRelative(offset)
-        operators_vector = builder.EndVector(len(operator_offsets))
-
-        # Serialize name
-        if self.name:
-            name_offset = builder.CreateString(self.name)
-        else:
-            name_offset = None
-
-        # Build SubGraph object
-        IoSubGraph.SubGraphStart(builder)
-        IoSubGraph.SubGraphAddTensors(builder, tensors_vector)
-        IoSubGraph.SubGraphAddInputs(builder, inputs_vector)
-        IoSubGraph.SubGraphAddOutputs(builder, outputs_vector)
-        IoSubGraph.SubGraphAddOperators(builder, operators_vector)
-        if name_offset:
-            IoSubGraph.SubGraphAddName(builder, name_offset)
-        subgraph_offset = IoSubGraph.SubGraphEnd(builder)
-
-        return subgraph_offset
-
-    @classmethod
-    def from_graph(cls, io_subgraph: IoSubGraph, buffers: List[bytes]) -> 'SubGraph':
-        """
-        Deserializes a SubGraph from a FlatBuffer.
-
-        Args:
-            io_subgraph (IoSubGraph): The deserialized SubGraph.
-            buffers (List[bytes]): The list of data buffers.
-
-        Returns:
-            SubGraph: The SubGraph instance.
-        """
-        subgraph = cls(name=io_subgraph.Name())
-
-        # Deserialize tensors
-        tensor_map = {}  # index to Tensor
-        for i in range(io_subgraph.TensorsLength()):
-            io_tensor = io_subgraph.Tensors(i)
-            tensor = Tensor.from_graph(io_tensor, buffers)
-            subgraph.add_tensor(tensor)
-            tensor_map[i] = tensor
-
-        # Register inputs
-        for i in range(io_subgraph.InputsLength()):
-            tensor_idx = io_subgraph.Inputs(i)
-            tensor = tensor_map[tensor_idx]
-            subgraph.register_input(tensor)
-
-        # Register outputs
-        for i in range(io_subgraph.OutputsLength()):
-            tensor_idx = io_subgraph.Outputs(i)
-            tensor = tensor_map[tensor_idx]
-            subgraph.register_output(tensor)
-
-        # Deserialize operators
-        for i in range(io_subgraph.OperatorsLength()):
-            io_operator = io_subgraph.Operators(i)
-            operator = Operator.from_graph(io_operator, tensor_map)
-            subgraph.operators.append(operator)
-
-        return subgraph
+    def register_sampler_input(
+            self,
+            prob,
+            sample_shape,
+            name: Optional[str] = None,
+    ):
+        output_tensor = Tensor(tensor=bit_pack_samples(prob, sample_shape, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8), name=name)
+        # Add the operation to the subgraph
+        self.add_operator(
+            opcode=IoOpCode.OpCode.MC_BITPACK_BERNOULLI_SAMPLES,
+            input_tensors=[],
+            output_tensors=[output_tensor],
+            args=None,
+            name=name,
+        )
+        if output_tensor not in self.inputs:
+            self.inputs.append(output_tensor)
+        return output_tensor
 
     # todo: should also contain arguments for variance, ci_intervals, variational_loss, etc
     def tally(self, operand: Tensor, register_as_output: bool = True, name: Optional[str] = None) -> Tensor:
@@ -403,6 +329,106 @@ class SubGraph:
 
     def bitwise_xnor(self, *operands: Tensor, name: Optional[str] = None) -> Tensor:
         return self.bitwise(IoOpCode.OpCode.BITWISE_XNOR, list(operands), name)
+
+    def to_tensorflow_model(self, prune_first: bool = False) -> tf.keras.Model:
+        """
+        Constructs a TensorFlow Keras model that corresponds to this SubGraph.
+
+        Returns:
+            tf.keras.Model: A Keras model representing the subgraph.
+        """
+        if prune_first:
+            self.prune()
+
+        # Create mapping from our Tensors to TensorFlow tensors
+        tensor_mapping: Dict[Tensor, tf.Tensor] = {}
+
+        # Map input tensors to tf.keras.Input
+        for tensor in self.inputs:
+            tf_input = tf.keras.Input(
+                shape=tensor.tf_tensor.shape[1:],  # Exclude batch dimension if necessary
+                dtype=tensor.tf_tensor.dtype,
+                name=tensor.name or f"input_{self._tensor_to_index[tensor]}"
+            )
+            tensor_mapping[tensor] = tf_input
+
+        # Process operators
+        for operator in self.operators:
+            # Get input tensors, mapping constants when necessary
+            input_tensors = []
+            for idx in operator.inputs:
+                input_tensor = self._index_to_tensor[idx]
+                if input_tensor in tensor_mapping:
+                    # The tensor is already mapped (either an input or an output from a previous operator)
+                    input_tensors.append(tensor_mapping[input_tensor])
+                elif input_tensor.tf_tensor is not None:
+                    # The tensor is a constant; create a tf.constant
+                    const_value = input_tensor.tf_tensor.numpy()
+                    const_tf_tensor = tf.constant(const_value, dtype=input_tensor.tf_tensor.dtype)
+                    tensor_mapping[input_tensor] = const_tf_tensor
+                    input_tensors.append(const_tf_tensor)
+                else:
+                    raise ValueError(f"Input tensor {input_tensor.name} is not mapped and has no value.")
+
+            # Apply the corresponding custom layer
+            opcode = operator.opcode
+            if opcode in self._BITWISE_LAYER_CLASSES:
+                layer_class = self._BITWISE_LAYER_CLASSES[opcode]
+
+                # Instantiate the layer
+                bitwise_layer = layer_class(name=operator.name, dtype=input_tensors[0].dtype)
+
+                # Apply the layer
+                if opcode == IoOpCode.OpCode.BITWISE_NOT:
+                    if len(input_tensors) != 1:
+                        raise ValueError("BITWISE_NOT operation requires exactly one input.")
+                    result = bitwise_layer(input_tensors[0])
+                else:
+                    if len(input_tensors) < 2:
+                        raise ValueError(f"Operation with opcode {opcode} requires at least two inputs.")
+                    # Reduce over input tensors using the layer
+                    result = reduce(lambda acc, x: bitwise_layer([acc, x]), input_tensors)
+
+                # Map output tensor
+                if len(operator.outputs) != 1:
+                    raise ValueError("Only operators with a single output are supported.")
+                output_tensor = self._index_to_tensor[operator.outputs[0]]
+                tensor_mapping[output_tensor] = result
+            elif opcode == IoOpCode.OpCode.MC_EXPECT_VAL:
+                if len(input_tensors) != 1:
+                    raise ValueError("MC_EXPECT_VAL operation requires exactly one input.")
+                # Use the Expectation Layer
+                expectation_layer = Expectation(name=operator.name)
+                result = expectation_layer(input_tensors[0])
+                # Map output tensor
+                if len(operator.outputs) != 1:
+                    raise ValueError("Only operators with a single output are supported.")
+                output_tensor = self._index_to_tensor[operator.outputs[0]]
+                tensor_mapping[output_tensor] = result
+            else:
+                raise NotImplementedError(f"Operator with opcode {opcode} is not implemented in to_tensorflow_model")
+
+        # Collect the output tensors
+        output_tensors = []
+        for tensor in self.outputs:
+            if tensor in tensor_mapping:
+                output_tensors.append(tensor_mapping[tensor])
+            elif tensor.tf_tensor is not None:
+                # Output tensor is a constant
+                const_value = tensor.tf_tensor.numpy()
+                const_tf_tensor = tf.constant(const_value, dtype=tensor.tf_tensor.dtype)
+                tensor_mapping[tensor] = const_tf_tensor
+                output_tensors.append(const_tf_tensor)
+            else:
+                raise ValueError(f"Output tensor {tensor.name} is not mapped and has no value.")
+
+        # Create the model
+        model = tf.keras.Model(
+            inputs=[tensor_mapping[tensor] for tensor in self.inputs],
+            outputs=output_tensors,
+            name=self.name
+        )
+        return model
 
     def prune(self):
         """
@@ -784,107 +810,6 @@ class SubGraph:
 
         return graph
 
-    def to_tensorflow_model(self, prune_first: bool = False) -> tf.keras.Model:
-        """
-        Constructs a TensorFlow Keras model that corresponds to this SubGraph.
-
-        Returns:
-            tf.keras.Model: A Keras model representing the subgraph.
-        """
-        if prune_first:
-            self.prune()
-
-        # Create mapping from our Tensors to TensorFlow tensors
-        tensor_mapping: Dict[Tensor, tf.Tensor] = {}
-
-        # Map input tensors to tf.keras.Input
-        for tensor in self.inputs:
-            tf_input = tf.keras.Input(
-                shape=tensor.tf_tensor.shape[1:],  # Exclude batch dimension if necessary
-                dtype=tensor.tf_tensor.dtype,
-                name=tensor.name or f"input_{self._tensor_to_index[tensor]}"
-            )
-            tensor_mapping[tensor] = tf_input
-
-        # Process operators
-        for operator in self.operators:
-            # Get input tensors, mapping constants when necessary
-            input_tensors = []
-            for idx in operator.inputs:
-                input_tensor = self._index_to_tensor[idx]
-                if input_tensor in tensor_mapping:
-                    # The tensor is already mapped (either an input or an output from a previous operator)
-                    input_tensors.append(tensor_mapping[input_tensor])
-                elif input_tensor.tf_tensor is not None:
-                    # The tensor is a constant; create a tf.constant
-                    const_value = input_tensor.tf_tensor.numpy()
-                    const_tf_tensor = tf.constant(const_value, dtype=input_tensor.tf_tensor.dtype)
-                    tensor_mapping[input_tensor] = const_tf_tensor
-                    input_tensors.append(const_tf_tensor)
-                else:
-                    raise ValueError(f"Input tensor {input_tensor.name} is not mapped and has no value.")
-
-            # Apply the corresponding custom layer
-            opcode = operator.opcode
-            if opcode in self._BITWISE_LAYER_CLASSES:
-                layer_class = self._BITWISE_LAYER_CLASSES[opcode]
-
-                # Instantiate the layer
-                bitwise_layer = layer_class(name=operator.name, dtype=input_tensors[0].dtype)
-
-                # Apply the layer
-                if opcode == IoOpCode.OpCode.BITWISE_NOT:
-                    if len(input_tensors) != 1:
-                        raise ValueError("BITWISE_NOT operation requires exactly one input.")
-                    result = bitwise_layer(input_tensors[0])
-                else:
-                    if len(input_tensors) < 2:
-                        raise ValueError(f"Operation with opcode {opcode} requires at least two inputs.")
-                    # Reduce over input tensors using the layer
-                    result = reduce(lambda acc, x: bitwise_layer([acc, x]), input_tensors)
-
-                # Map output tensor
-                if len(operator.outputs) != 1:
-                    raise ValueError("Only operators with a single output are supported.")
-                output_tensor = self._index_to_tensor[operator.outputs[0]]
-                tensor_mapping[output_tensor] = result
-            elif opcode == IoOpCode.OpCode.MC_EXPECT_VAL:
-                if len(input_tensors) != 1:
-                    raise ValueError("MC_EXPECT_VAL operation requires exactly one input.")
-                # Use the Expectation Layer
-                expectation_layer = Expectation(name=operator.name)
-                result = expectation_layer(input_tensors[0])
-                # Map output tensor
-                if len(operator.outputs) != 1:
-                    raise ValueError("Only operators with a single output are supported.")
-                output_tensor = self._index_to_tensor[operator.outputs[0]]
-                tensor_mapping[output_tensor] = result
-            else:
-                raise NotImplementedError(f"Operator with opcode {opcode} is not implemented in to_tensorflow_model")
-
-        # Collect the output tensors
-        output_tensors = []
-        for tensor in self.outputs:
-            if tensor in tensor_mapping:
-                output_tensors.append(tensor_mapping[tensor])
-            elif tensor.tf_tensor is not None:
-                # Output tensor is a constant
-                const_value = tensor.tf_tensor.numpy()
-                const_tf_tensor = tf.constant(const_value, dtype=tensor.tf_tensor.dtype)
-                tensor_mapping[tensor] = const_tf_tensor
-                output_tensors.append(const_tf_tensor)
-            else:
-                raise ValueError(f"Output tensor {tensor.name} is not mapped and has no value.")
-
-        # Create the model
-        model = tf.keras.Model(
-            inputs=[tensor_mapping[tensor] for tensor in self.inputs],
-            outputs=output_tensors,
-            name=self.name
-        )
-        return model
-
-
     def save(self, file_path: str):
         """
         Saves the subgraph to a file.
@@ -986,3 +911,112 @@ class SubGraph:
             return subgraph
         except Exception as e:
             raise IOError(f"Error loading subgraph from file '{file_path}': {str(e)}")
+
+
+    def to_graph(self, builder, buffers: BufferManager) -> int:
+        """
+        Serializes the subgraph to FlatBuffers using the builder.
+
+        Args:
+            builder (flatbuffers.Builder): The FlatBuffers builder.
+            buffers (BufferManager): The buffer manager for data buffers.
+
+        Returns:
+            int: The offset in the FlatBuffer where the SubGraph is stored.
+        """
+        # Serialize tensors
+        tensor_offsets = []
+        for tensor in self.tensors:
+            tensor_offset = tensor.to_graph(builder, buffers)
+            tensor_offsets.append(tensor_offset)
+
+        # Build tensors vector
+        IoSubGraph.SubGraphStartTensorsVector(builder, len(tensor_offsets))
+        for offset in reversed(tensor_offsets):
+            builder.PrependUOffsetTRelative(offset)
+        tensors_vector = builder.EndVector(len(tensor_offsets))
+
+        # Serialize inputs
+        input_indices = [self._tensor_to_index[tensor] for tensor in self.inputs]
+        IoSubGraph.SubGraphStartInputsVector(builder, len(input_indices))
+        for idx in reversed(input_indices):
+            builder.PrependInt32(idx)
+        inputs_vector = builder.EndVector(len(input_indices))
+
+        # Serialize outputs
+        output_indices = [self._tensor_to_index[tensor] for tensor in self.outputs]
+        IoSubGraph.SubGraphStartOutputsVector(builder, len(output_indices))
+        for idx in reversed(output_indices):
+            builder.PrependInt32(idx)
+        outputs_vector = builder.EndVector(len(output_indices))
+
+        # Serialize operators
+        operator_offsets = []
+        for operator in self.operators:
+            operator_offset = operator.to_graph(builder)
+            operator_offsets.append(operator_offset)
+
+        IoSubGraph.SubGraphStartOperatorsVector(builder, len(operator_offsets))
+        for offset in reversed(operator_offsets):
+            builder.PrependUOffsetTRelative(offset)
+        operators_vector = builder.EndVector(len(operator_offsets))
+
+        # Serialize name
+        if self.name:
+            name_offset = builder.CreateString(self.name)
+        else:
+            name_offset = None
+
+        # Build SubGraph object
+        IoSubGraph.SubGraphStart(builder)
+        IoSubGraph.SubGraphAddTensors(builder, tensors_vector)
+        IoSubGraph.SubGraphAddInputs(builder, inputs_vector)
+        IoSubGraph.SubGraphAddOutputs(builder, outputs_vector)
+        IoSubGraph.SubGraphAddOperators(builder, operators_vector)
+        if name_offset:
+            IoSubGraph.SubGraphAddName(builder, name_offset)
+        subgraph_offset = IoSubGraph.SubGraphEnd(builder)
+
+        return subgraph_offset
+
+    @classmethod
+    def from_graph(cls, io_subgraph: IoSubGraph, buffers: List[bytes]) -> 'SubGraph':
+        """
+        Deserializes a SubGraph from a FlatBuffer.
+
+        Args:
+            io_subgraph (IoSubGraph): The deserialized SubGraph.
+            buffers (List[bytes]): The list of data buffers.
+
+        Returns:
+            SubGraph: The SubGraph instance.
+        """
+        subgraph = cls(name=io_subgraph.Name())
+
+        # Deserialize tensors
+        tensor_map = {}  # index to Tensor
+        for i in range(io_subgraph.TensorsLength()):
+            io_tensor = io_subgraph.Tensors(i)
+            tensor = Tensor.from_graph(io_tensor, buffers)
+            subgraph.add_tensor(tensor)
+            tensor_map[i] = tensor
+
+        # Register inputs
+        for i in range(io_subgraph.InputsLength()):
+            tensor_idx = io_subgraph.Inputs(i)
+            tensor = tensor_map[tensor_idx]
+            subgraph.register_input(tensor)
+
+        # Register outputs
+        for i in range(io_subgraph.OutputsLength()):
+            tensor_idx = io_subgraph.Outputs(i)
+            tensor = tensor_map[tensor_idx]
+            subgraph.register_output(tensor)
+
+        # Deserialize operators
+        for i in range(io_subgraph.OperatorsLength()):
+            io_operator = io_subgraph.Operators(i)
+            operator = Operator.from_graph(io_operator, tensor_map)
+            subgraph.operators.append(operator)
+
+        return subgraph

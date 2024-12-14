@@ -1,5 +1,5 @@
 import unittest
-
+import coremltools as ct
 import numpy as np
 import tensorflow as tf
 
@@ -8,19 +8,79 @@ from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.probability.distributions import Bernoulli
 from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
 from pracciolini.grammar.canopy.utils import tensor_as_formatted_bit_vectors
+from pracciolini.grammar.openpsa.validate import read_openpsa_xml
+from pracciolini.translator.opsamef_canopy.translations import opsamef_xml_file_to_canopy_subgraph
 
 
 class SubGraphConstructionTests(unittest.TestCase):
     def setUp(self):
         # might need pop count
+        ## todo:: to apply pop-count vertically,
         samples_a = [0b00000000, 0b00000001, 0b00000010] # 8 * 3 = 24 total samples for A, P(A) = (2/24)  = 0.0833
         samples_b = [0b00000100, 0b00001000, 0b00010000] # 8 * 3 = 24 total samples for B, P(B) = (3/24)  = 0.1250
         samples_c = [0b00100100, 0b01000000, 0b10000000] # 8 * 3 = 24 total samples for C, P(C) = (4/24)  = 0.1666
         samples_d = [0b11111111, 0b11111111, 0b11111111] # 8 * 3 = 24 total samples for D, P(D) = (24/24) = 1.0000
+        _3_of_4   = [0b00000100, 0b00000000, 0b00000000]
+
+        # to get this result, I need to pop count vertically. so lets apply 8 masks to each element of a, b, c, d
+        mask_7b = 0b10000000
+        mask_6b = 0b01000000
+        mask_5b = 0b00100000
+        mask_4b = 0b00010000
+        mask_3b = 0b00001000
+        mask_2b = 0b00000100
+        mask_1b = 0b00000010
+        mask_0b = 0b00000001
+
         self.A = Tensor(tf.constant(samples_a, dtype=tf.uint8), name="A", shape=[1, None])
         self.B = Tensor(tf.constant(samples_b, dtype=tf.uint8), name="B", shape=[1, None])
         self.C = Tensor(tf.constant(samples_c, dtype=tf.uint8), name="C", shape=[1, None])
         self.D = Tensor(tf.constant(samples_d, dtype=tf.uint8), name="D", shape=[1, None])
+
+    def test_sampler_in_input_estimator_batched(self):
+        subgraph = SubGraph("direct_sampler")
+        input_dtype = tf.uint8
+        known_x = 0.1
+        x = Bernoulli(probs=known_x, pack_bits_dtype=input_dtype)
+        input_x = Tensor(x, name="input_x")
+        subgraph.register_input(input_x)
+        not_x = subgraph.bitwise_not(input_x, name="not_x")
+        not_not_x = subgraph.bitwise_not(not_x, name="not_not_x")
+        subgraph.register_output(not_not_x)
+        output_x = subgraph.tally(not_not_x)
+
+        model: tf.keras.Model = subgraph.to_tensorflow_model()
+        print(model.summary())
+
+
+        total_samples = 2 ** 28
+        batch_size = 2 ** 24
+        num_batches = int(total_samples / batch_size)
+
+        # Create a dataset of samples
+        def generate_samples():
+            for batch_num in range(num_batches):
+                samples_x = x.sample((x.bitpack_bits_per_dtype, batch_size), seed=372 + batch_num)
+                yield samples_x
+
+        dataset = tf.data.Dataset.from_generator(
+            generate_samples,
+            output_signature=tf.TensorSpec(shape=(batch_size,), dtype=input_dtype)
+        )
+
+        # Process the dataset
+        losses = []
+        batch_indices = []
+
+
+        for batch_num, samples_x in enumerate(dataset):
+            predicted_value = model.predict(x=samples_x, batch_size=batch_size)
+            predicted_mean = predicted_value[1]
+            loss = (predicted_mean - known_x) ** 2
+            losses.append(loss)
+            batch_indices.append(batch_num)
+            print(f"Batch {batch_num}, Predicted Mean: {predicted_mean}, Loss: {loss}")
+
 
     def test_input_estimator_batched(self):
         subgraph = SubGraph("direct_sampler")
@@ -70,7 +130,18 @@ class SubGraphConstructionTests(unittest.TestCase):
     def test_input_estimator_batched_basic_expr(self):
         input_dtype = tf.uint8
         bitpack_bits_per_dtype = 8
-        ## todo:: change the TEnsor constructor to  accept just a tf.tensorspec
+
+        # subgraph = opsamef_xml_file_to_canopy_subgraph(xml_file)
+        # subgraph.execute() # # run thru python -> tensorflow -> JAX (JIT Compiler) -> CUDA backend
+        # subgraph.save() # for canopy c++ engine AdaptiveCpp (HipSYCL) (Intel DPCC mixin) -> JIT Compiler -> SYCL/OpenCL backend -> CUDA, FPGA, etc
+        # model = subgraph.to_tensorflow_model()
+        # model.predict() # run thru python -> tensorflow -> tensorflow keras -> JAX (JIT Compiler) -> CUDA backend
+        # model.save() # anything that supports keras models
+        # #coreml_model = subgraph.to_coreml_model()
+
+
+        ## todo:: change the Tensor constructor to  accept just a tf.tensorspec
+        ## todo:: add a input sampler layer
         input_tensor_spec = tf.constant(value=0, shape=(), dtype=input_dtype)
         subgraph = SubGraph(name="F")
         a = subgraph.register_input(Tensor(input_tensor_spec, name="a"))
@@ -81,7 +152,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         f = subgraph.register_input(Tensor(input_tensor_spec, name="f"))
 
         # intermediates
-        f_11 = subgraph.bitwise_and(a, b, c, d, name="f_11")
+        f_11 = subgraph.bitwise_or(a, b, c, d, name="f_11")
         f_13 = subgraph.bitwise_xor(e, f, name="f_13")
         f_12 = subgraph.bitwise_not(d, name="f_12")
         f_21 = subgraph.bitwise_and(f_12, f_11, name="f_21")
@@ -93,8 +164,14 @@ class SubGraphConstructionTests(unittest.TestCase):
         print(model.summary())
 
         model.save("six_operands.h5")
+
+
+
+
+
+
         known_x = 0.1
-        total_samples = 2 ** 27
+        total_samples = 2 ** 29
         batch_size = 2 ** 24
         num_batches = int(total_samples / batch_size)
 

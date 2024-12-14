@@ -34,8 +34,8 @@ def generate_uniform_samples(
     uniform_samples = uniform_dist.sample(sample_shape=dim, seed=seed)
     return uniform_samples
 
-
-def bit_pack_samples(prob, num_samples = int(2 ** 10), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8):
+@tf.function
+def bit_pack_samples(prob, num_samples = int(2 ** 10), seed=372, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8) -> tf.Tensor:
     bits_per_packed_dtype = tf.dtypes.as_dtype(bitpack_dtype).size * 8
     sample_count = int(((num_samples + bits_per_packed_dtype - 1) // bits_per_packed_dtype) * bits_per_packed_dtype)
     samples_dim = (1, sample_count)
