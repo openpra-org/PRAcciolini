@@ -73,7 +73,7 @@ class BitwiseOr(Layer):
     def compute_bitwise_or(self, inputs):
         # Stack inputs along a new dimension to create a single tensor.
         stacked_inputs = tf.stack(inputs)
-        # Use tf.foldl to perform the bitwise AND reduction efficiently.
+        # Use tf.foldl to perform the bitwise OR reduction efficiently.
         result = tf.foldl(lambda a, b: tf.bitwise.bitwise_or(a, b), stacked_inputs)
         return result
 
@@ -123,3 +123,23 @@ class BitwiseXnor(Layer):
             raise ValueError("BitwiseXnor Layer requires at least two input tensors.")
         result = reduce(tf.bitwise.bitwise_xor, inputs)
         return tf.bitwise.invert(result)
+
+
+class SampleGenerator(Layer):
+    def __init__(self, **kwargs):
+        super(SampleGenerator, self).__init__(**kwargs)
+
+    def call(self, inputs):
+        if not isinstance(inputs, (list, tuple)):
+            raise ValueError("BitwiseAnd layer requires a list of input tensors.")
+        if len(inputs) < 2:
+            raise ValueError("BitwiseAnd layer requires at least two input tensors.")
+        return self.compute_bitwise_and(inputs)
+
+    @tf.function
+    def compute_bitwise_and(self, inputs):
+        # Stack inputs along a new dimension to create a single tensor.
+        stacked_inputs = tf.stack(inputs)
+        # Use tf.foldl to perform the bitwise AND reduction efficiently.
+        result = tf.foldl(lambda a, b: tf.bitwise.bitwise_and(a, b), stacked_inputs)
+        return result

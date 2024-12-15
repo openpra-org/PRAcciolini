@@ -12,21 +12,21 @@ class BitpackDistributionMixinTests(unittest.TestCase):
         num_bits_list = [1, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128]
         for num_bits in num_bits_list:
             with self.subTest(num_bits=num_bits):
-                samples = dist.sample(sample_shape=(num_bits,), seed=372, pack_bits=None)
+                samples = dist.sample(sample_shape=(num_bits,), seed=372, )
                 # Unpacked samples, shape should be (num_bits,)
                 expected_shape = (num_bits,)
                 self.assertEqual(samples.shape, expected_shape)
                 self.assertEqual(samples.dtype, dist.dtype)
 
     def test_construct_bitpack_bool_bernoulli(self):
-        dist = Bernoulli(probs=0.5, dtype=tf.bool)
         num_bits_list = [1, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128]
-        dtypes = [tf.uint8, tf.uint16, tf.uint32, tf.uint64]
-        for dtype in dtypes:
+        pack_bits_dtype = [tf.uint8, tf.uint16, tf.uint32, tf.uint64]
+        for dtype in pack_bits_dtype:
             for num_bits in num_bits_list:
-                with self.subTest(dtype=dtype, num_bits=num_bits):
+                with self.subTest(pack_bits_dtype=dtype, num_bits=num_bits):
+                    dist = Bernoulli(probs=0.5, dtype=tf.bool, pack_bits_dtype=dtype)
                     # Sample with specified sample_shape
-                    samples = dist.sample(sample_shape=(num_bits,), seed=372, pack_bits=dtype)
+                    samples = dist.sample(sample_shape=(num_bits,), seed=372)
                     # Packed samples, shape depends on n_bits and dtype
                     bits_per_word = tf.dtypes.as_dtype(dtype).size * 8
                     num_packed_elements = (num_bits + bits_per_word - 1) // bits_per_word
@@ -62,30 +62,28 @@ class BitpackDistributionMixinTests(unittest.TestCase):
     def test_bitpack_bernoulli_batch(self):
         # Test Bernoulli with batch shape
         probs = [0.2, 0.5, 0.8]
-        dist = Bernoulli(probs=probs, dtype=tf.bool)
+        bitpack_dtype = tf.uint8
+        dist = Bernoulli(probs=probs, dtype=tf.bool, pack_bits_dtype=bitpack_dtype)
         sample_shape = (10,)
-        dtype = tf.uint8
 
-        samples = dist.sample(sample_shape=sample_shape, pack_bits=dtype)
+        samples = dist.sample(sample_shape=sample_shape, )
         # The expected shape is batch_shape + [num_packed_elements_per_row]
-        bits_per_word = tf.dtypes.as_dtype(dtype).size * 8
+        bits_per_word = tf.dtypes.as_dtype(bitpack_dtype).size * 8
         num_bits = sample_shape[0]
         num_packed_elements = (num_bits + bits_per_word - 1) // bits_per_word
 
         expected_shape = dist.batch_shape + (num_packed_elements,)
         self.assertEqual(samples.shape, expected_shape)
-        self.assertEqual(samples.dtype, dtype)
+        self.assertEqual(samples.dtype, bitpack_dtype)
 
     def test_construct_bitpack_categorical(self):
-        dist = Categorical(logits=[0.1, 0.2, 0.7], dtype=tf.int32)
-
-        dtypes = [None, tf.uint8]
+        pack_bits_dtypes = [None, tf.uint8]
         num_samples_list = [5, 10]
-
-        for dtype in dtypes:
+        for dtype in pack_bits_dtypes:
             for num_samples in num_samples_list:
                 with self.subTest(dtype=dtype, num_samples=num_samples):
-                    samples = dist.sample(sample_shape=(num_samples,), seed=42, pack_bits=dtype)
+                    dist = Categorical(logits=[0.1, 0.2, 0.7], dtype=tf.int32, pack_bits_dtype=dtype)
+                    samples = dist.sample(sample_shape=(num_samples,), seed=42)
                     if dtype is None:
                         expected_shape = (num_samples,)
                         self.assertEqual(samples.shape, expected_shape)
