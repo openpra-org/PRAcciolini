@@ -1,6 +1,8 @@
 import tensorflow as tf
 import numpy as np
-
+import tensorflow as tf
+import numpy as np
+import h5py
 
 def tensor_as_formatted_bit_vectors(tensor: tf.Tensor):
     """
@@ -25,3 +27,74 @@ def tensor_as_formatted_bit_vectors(tensor: tf.Tensor):
     formatted_array = vectorized_format(numpy_array)
 
     return formatted_array
+
+
+
+
+def generate_and_save_samples(model, output_path, num_iterations, batch_size):
+    """
+    Generates samples using the model and saves them to disk.
+
+    Args:
+        model (tf.keras.Model): The Keras model that outputs the samples.
+        output_path (str): Path to the HDF5 file where samples will be saved.
+        num_iterations (int): Number of iterations to generate samples.
+        batch_size (int): Batch size for sample generation.
+    """
+    total_batches = num_iterations
+    samples_per_batch = batch_size
+    sample_shape = model.output_shape  # Should be (batch_size, n_probs)
+
+    # Create an HDF5 file to store the samples
+    with h5py.File(output_path, 'w') as hf:
+        # Create a dataset to store samples incrementally
+        dset = hf.create_dataset('samples',
+                                 shape=(0, sample_shape[-1]),
+                                 maxshape=(None, sample_shape[-1]),
+                                 chunks=True,
+                                 dtype=np.uint8)
+
+        # Generate and save samples in batches
+        for i in range(total_batches):
+            print(f"Generating batch {i+1}/{total_batches}")
+            # Prepare dummy input data (your model's input doesn't seem to use it)
+            input_data = np.ones((batch_size, 1), dtype=np.uint64)
+            # Generate samples
+            generated_samples = model.predict(x=input_data, batch_size=batch_size)[0]  # Access the samples output
+            # Append samples to the dataset
+            current_shape = dset.shape[0]
+            new_shape = current_shape + generated_samples.shape[0]
+            dset.resize(new_shape, axis=0)
+            dset[current_shape:new_shape, :] = generated_samples.astype(np.uint8)
+
+
+def create_dataset_from_hdf5(file_path, dataset_name='samples', batch_size=1024):
+    """
+    Creates a tf.data.Dataset from an HDF5 file.
+
+    Args:
+        file_path (str): Path to the HDF5 file.
+        dataset_name (str): Name of the dataset inside the HDF5 file.
+        batch_size (int): Batch size for the dataset.
+
+    Returns:
+        tf.data.Dataset: The dataset object for streaming samples.
+    """
+
+    def generator():
+        with h5py.File(file_path, 'r') as hf:
+            data = hf[dataset_name]
+            for i in range(len(data)):
+                yield data[i]
+
+    with h5py.File(file_path, 'r') as hf:
+        data_shape = hf[dataset_name].shape
+
+    dataset = tf.data.Dataset.from_generator(
+        generator,
+        output_types=tf.uint8,
+        output_shapes=(data_shape[1],)
+    )
+
+    dataset = dataset.batch(batch_size)
+    return dataset

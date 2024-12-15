@@ -34,6 +34,7 @@ dependencies = [
     "antlr4-python3-runtime",
     "argparse",
     "flatbuffers >=24",
+    "h5py",
     "jsonschema",
     "lxml",
     "networkx",
