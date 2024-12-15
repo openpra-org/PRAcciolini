@@ -181,9 +181,6 @@ class BitpackedBernoulli(Layer):
         bit_positions = tf.cast(bit_positions, self._bitpack_dtype)
         bit_positions = tf.reshape(bit_positions, [1, -1])  # Shape: [1, num_bits_to_sample]
 
-        # Convert boolean samples to integer type
-        #bit_values = tf.cast(samples, self.bitpack_dtype)  # Shape: [batch_size, num_bits_to_sample]
-
         # Shift bits accordingly using tf.bitwise.left_shift
         shifted_bits = tf.bitwise.left_shift(samples, bit_positions)  # Corrected line
 
