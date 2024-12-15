@@ -1,5 +1,8 @@
 import tensorflow as tf
 
+from pracciolini.grammar.canopy.probability.distributions import Bernoulli
+
+
 @tf.function
 def expectation(x: tf.Tensor) -> tf.Tensor:
     """
@@ -38,3 +41,9 @@ def confidence_intervals(x: tf.Tensor) -> tf.Tensor:
 @tf.function
 def variational_loss(x: tf.Tensor) -> tf.Tensor:
     pass
+
+
+@tf.function
+def sample_bernoulli(probs: tf.Tensor, sample_shape, pack_bits_dtype: tf.DType):
+    distribution = Bernoulli(probs=probs, dtype=tf.bool, pack_bits_dtype=pack_bits_dtype)
+    return distribution.sample(sample_shape=sample_shape)
