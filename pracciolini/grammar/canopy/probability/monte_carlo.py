@@ -6,20 +6,22 @@ from pracciolini.grammar.canopy.probability.distributions import Bernoulli
 @tf.function
 def expectation(x: tf.Tensor) -> tf.Tensor:
     """
-    Computes the expected value (mean) of bits set to 1 in the input tensor.
+    Computes the expected value (mean) of bits set to 1 in the input tensor per probability.
 
     Args:
-        x (tf.Tensor): Input tensor containing binary data.
+        x (tf.Tensor): Input tensor containing packed binary data.
+                       Shape: [batch_size, n_probs], dtype uint8.
 
     Returns:
-        tf.Tensor: The expected mean value.
+        tf.Tensor: The expected mean value per probability.
+                   Shape: [n_probs], dtype tf.float64.
     """
     # Count the number of bits set to 1 in each element
     pop_counts = tf.raw_ops.PopulationCount(x=x)
     # Sum all the counts to get total number of one-bits
-    total_one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=tf.uint64), axis=None) #axis=0
-    # Get the total number of elements in the tensor
-    total_elements = tf.cast(x=tf.size(input=x, out_type=tf.int64), dtype=tf.uint64)
+    total_one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=tf.uint64), axis=0) #axis=0
+    # Get the total number of elements in the tensor (the number of samples per dimension)
+    total_elements = tf.cast(x=tf.shape(x)[0], dtype=tf.uint64)
     # Get the size of each element in bytes
     words_per_element = tf.constant(value=x.dtype.size, dtype=tf.uint64)
     # Convert size to bits (1 byte = 8 bits)
