@@ -3,7 +3,8 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from pracciolini.grammar.canopy.model.layers import SampleGenerator
+from pracciolini.grammar.canopy.model.layers import BitpackedBernoulli, BitwiseOr, BitwiseXor, Expectation, BitwiseAnd, \
+    BitwiseNot, BitwiseXnor, BitwiseNand, BitwiseNor
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.probability.distributions import Bernoulli
@@ -162,99 +163,97 @@ class SubGraphConstructionTests(unittest.TestCase):
 
     def test_concat_input_estimator_batched_basic_expr(self):
 
-        input_num_samples = tf.keras.layers.Input(shape=None, dtype=tf.uint64, name="num_samples")
-        layer_sampler_generator = SampleGenerator(probs=[0.1, 0.5, 0.2], dtype=tf.uint8)
+        # Create sample_shape and seed inputs
+        sample_shape_tensor = tf.keras.Input(shape=(1,), dtype=tf.uint64)
+        stub_input_data = tf.constant(value=(1, 1), dtype=np.int32)
 
-        input_dtype = tf.uint8
-        bitpack_bits_per_dtype = 8
-        ## todo:: change the TEnsor constructor to  accept just a tf.tensorspec
-        input_tensor_spec = tf.constant(value=0, shape=(), dtype=input_dtype)
-        subgraph = SubGraph(name="F")
-        a = subgraph.register_input(Tensor(input_tensor_spec, name="a"))
-        b = subgraph.register_input(Tensor(input_tensor_spec, name="b"))
-        c = subgraph.register_input(Tensor(input_tensor_spec, name="c"))
-        d = subgraph.register_input(Tensor(input_tensor_spec, name="d"))
-        e = subgraph.register_input(Tensor(input_tensor_spec, name="e"))
-        f = subgraph.register_input(Tensor(input_tensor_spec, name="f"))
+        num_events = 2 ** 6
+        iterations = 10
+        batch_size = 2 ** 25 - 1
+        dtype = tf.uint8
+        sampler_dtype = tf.float64
+        samples_per_batch = tf.dtypes.as_dtype(dtype).size * 8
+        probabilities = [float(0.1)/x for x in range(1,num_events)]
+        total_samples = num_events * batch_size * samples_per_batch * iterations
+        print(f"total samples: 2^{np.log(total_samples)/np.log(2)}")
+        print(f"samples per iteration: 2^{np.log(total_samples/iterations)/np.log(2)}")
+        print(f"samples per iteration per event: 2^{np.log(total_samples/iterations/num_events)/np.log(2)}")
+        events = []
+        for p in probabilities:
+            events.append(BitpackedBernoulli(name=f"p_{p}", probs=p, batch_size=batch_size, dtype=dtype, sampler_dtype=sampler_dtype)(sample_shape_tensor))
+        output1 = BitwiseXor(name=f"xor_all")(events)
+        output12 = BitwiseNor(name=f"nor_1_7")(events[int(num_events-num_events/2):num_events])
+        output112 = BitwiseXnor(name=f"xnor_4_9")(events[int(1):int(num_events/2)])
+        output123 = BitwiseXor(name=f"xor_not_xnor")([BitwiseNot()(output1), output112])
+        output1234 = BitwiseOr(name=f"or")([output12, output123])
+        outputs = [Expectation(name=f"e_o1")(output1), Expectation(name=f"e_o12")(output12), Expectation(name=f"e_o123")(output123), Expectation(name=f"e_o1234")(output1234)]
 
-        # intermediates
-        f_11 = subgraph.bitwise_and(a, b, c, d, name="f_11")
-        f_13 = subgraph.bitwise_xor(e, f, name="f_13")
-        f_12 = subgraph.bitwise_not(d, name="f_12")
-        f_21 = subgraph.bitwise_and(f_12, f_11, name="f_21")
-        # output
-        f = subgraph.bitwise_or(f_21, f_13, name="F")
-        P_f = subgraph.tally(f, name="P_F")
+        model = tf.keras.Model(inputs=sample_shape_tensor, outputs=outputs)
+        model.summary()
 
-        model: tf.keras.Model = subgraph.to_tensorflow_model()
-        print(model.summary())
+        model.save("10_events_6_gates_4_expectations.h5")
+        #output_data = model.predict(x=stub_input_data, steps=iterations)
+        #print(f"E[f(x)] = {output_data}")
+        for iteration in range(iterations):
+            output_data = model.predict(x=stub_input_data)
+            print(f"Iteration {iteration}: E[f(x)] = {output_data}")
+        return
 
-        model.save("six_operands.h5")
-        known_x = 0.1
-        total_samples = 2 ** 27
-        batch_size = 2 ** 24
-        num_batches = int(total_samples / batch_size)
+        samples2 = BitpackedBernoulli(shape=(4,), dtype=tf.uint8)
 
-        P_a = Bernoulli(probs=0.01, pack_bits_dtype=input_dtype)
-        P_b = Bernoulli(probs=0.02, pack_bits_dtype=input_dtype)
-        P_c = Bernoulli(probs=0.03, pack_bits_dtype=input_dtype)
-        P_d = Bernoulli(probs=0.04, pack_bits_dtype=input_dtype)
-        P_e = Bernoulli(probs=0.001, pack_bits_dtype=input_dtype)
-        P_f = Bernoulli(probs=0.002, pack_bits_dtype=input_dtype)
+        sampler2 = BitpackedBernoulli()
 
-        # Create a dataset of samples
-        def generate_samples():
-            for batch_num in range(num_batches):
-                samples_a = P_a.sample((bitpack_bits_per_dtype, batch_size))
-                samples_b = P_b.sample((bitpack_bits_per_dtype, batch_size))
-                samples_c = P_c.sample((bitpack_bits_per_dtype, batch_size))
-                samples_d = P_d.sample((bitpack_bits_per_dtype, batch_size))
-                samples_e = P_e.sample((bitpack_bits_per_dtype, batch_size))
-                samples_f = P_f.sample((bitpack_bits_per_dtype, batch_size))
-                yield samples_a, samples_b, samples_c, samples_d, samples_e, samples_f
+        # Since the samplers do not need inputs, we can create a dummy Input layer
+        # Create sample_shape and seed
+        sample_shape = [4]  # Number of samples to draw
+        seed = 42  # Seed for reproducibility
+        inputs = tf.keras.Input(shape=(), dtype=tf.float32)
 
-        dataset = tf.data.Dataset.from_generator(
-            generate_samples,
-            output_signature=(
-                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
-                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
-                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
-                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
-                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
-                tf.TensorSpec(shape=(batch_size,), dtype=input_dtype),
-            )
-        )
+        # Define Lambda layers to pass the sample_shape and seed
+        samples1 = tf.keras.layers.Lambda(lambda x: sampler1(x, sample_shape=sample_shape, seed=seed))(inputs)
+        samples2 = tf.keras.layers.Lambda(lambda x: sampler2(x, sample_shape=sample_shape, seed=seed))(inputs)
 
-        # Process the dataset
-        losses = []
-        batch_indices = []
+        # # Get the samples; the inputs are (sample_shape, seed)
+        # samples1 = sampler1([sample_shape_input, seed_input])
+        # samples2 = sampler2([sample_shape_input, seed_input])
 
-        cumulative_sum = 0.0
-        total_samples_processed = 0
+        # For demonstration, compute two outputs
+        # Output 1: Addition of samples modulo 256 (since we use uint8)
+        # Output 2: Bitwise AND of the samples
 
-        for batch_num, (samples_a, samples_b, samples_c, samples_d, samples_e, samples_f) in enumerate(dataset):
-            predicted_value = model.predict(
-                x=[samples_a, samples_b, samples_c, samples_d, samples_e, samples_f],
-                batch_size=batch_size
-            )
+        # Compute the outputs
+        output1 = tf.math.floormod(tf.add(samples1, samples2), 256)
+        output2 = tf.bitwise.bitwise_and(samples1, samples2)
 
-            # Assuming predicted_value is a numpy array or can be converted to one
-            batch_sum = predicted_value
-            #batch_size = predicted_value.shape[0]  # Number of samples in the batch
+        # Build the model
+        model = tf.keras.Model(inputs=inputs, outputs=[output1, output2])
 
-            # Update cumulative sum and total samples
-            cumulative_sum += batch_sum
-            total_samples_processed += 1
+        dummy_input = np.zeros((1,))
 
-            # Compute cumulative mean
-            cumulative_mean = cumulative_sum / total_samples_processed
+        # Run the predict step
+        outputs = model.predict(dummy_input)
+        return
 
-            # Compute loss based on cumulative mean
-            loss = (cumulative_mean - known_x) ** 2
-            losses.append(loss)
-            batch_indices.append(batch_num)
+        # Choose batch_size and sample_shape
+        batch_size = 4
+        sample_shape = [batch_size]
+        seed = 42
 
-            print(f"Batch {batch_num}, predicted {predicted_value} Cumulative Mean: {cumulative_mean}, Loss: {loss}")
+        # Since Keras requires inputs as numpy arrays or Tensors, we need to provide appropriate inputs
+        sample_shape_array = np.array(sample_shape, dtype='int32')
+        seed_array = np.array(seed, dtype='int32')
+
+        # Prepare inputs for prediction
+        # Expand dims to match the expected input shape
+        sample_shape_input_array = np.expand_dims(sample_shape_array, axis=0)
+        seed_input_array = seed_array
+
+        # Run the predict step
+        outputs = model.predict([sample_shape_input_array, seed_input_array])
+
+        # Print the outputs
+        print("Output 1 (Sum of samples modulo 256):\n", outputs[0])
+        print("\nOutput 2 (Bitwise AND of samples):\n", outputs[1])
 
     def test_input_estimator(self):
         #num_samples
@@ -457,3 +456,6 @@ class SubGraphConstructionTests(unittest.TestCase):
         print(f"binary_literals_1d: {binary_literals_1d}")
 
         return
+
+if __name__ == "__main__":
+    SubGraphConstructionTests().test_concat_input_estimator_batched_basic_expr()
