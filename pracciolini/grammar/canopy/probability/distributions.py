@@ -84,9 +84,13 @@ import tensorflow_probability as tfp
 
 class BitpackSamplesMixin(object):
 
-    def __init__(self, pack_bits_dtype:tf.DType = tf.uint64, *args, **kwargs):
+    def __init__(self, pack_bits_dtype: Optional[tf.DType]=None, *args, **kwargs):
 
         self.bitpack_dtype = pack_bits_dtype
+
+        if self.bitpack_dtype is None:
+            return
+
         self.bitpack_largest_supported_dtype = tf.uint64
         self.bitpack_bits_per_dtype = tf.dtypes.as_dtype(self.bitpack_dtype).size * 8
         self.bitpack_bits_per_largest_supported_dtype = tf.dtypes.as_dtype(self.bitpack_largest_supported_dtype).size * 8
@@ -110,7 +114,7 @@ class BitpackSamplesMixin(object):
             return tf.constant(weights, dtype=compute_dtype)
         return precompute_weights
 
-    def sample(self, sample_shape=(), seed=None, **kwargs):
+    def sample(self, *args, sample_shape=(), seed=None, **kwargs):
         """Generates samples, packing bits along the sample dimensions.
 
         Args:
@@ -123,7 +127,10 @@ class BitpackSamplesMixin(object):
         """
 
         # Obtain samples from the base class (tfp.distributions.Distribution)
-        samples = super().sample(sample_shape=sample_shape, seed=seed, **kwargs)
+        samples = super().sample(*args, sample_shape=sample_shape, seed=seed, **kwargs)
+
+        if self.bitpack_dtype is None:
+            return samples
 
         # Convert samples to booleans (since we initialized with dtype=tf.uint8)
         bool_tensor = tf.cast(samples, tf.bool)
@@ -204,22 +211,16 @@ class BitpackSamplesMixin(object):
         return packed_ints
 
 class Bernoulli(BitpackSamplesMixin, tfp.distributions.Bernoulli):
-    def __init__(self, *args, pack_bits_dtype=tf.uint64, **kwargs):
-        # Initialize the Bernoulli distribution with dtype=tf.uint8
-        tfp.distributions.Bernoulli.__init__(self, *args, dtype=tf.uint8, **kwargs)
-        # Initialize BitpackSamplesMixin
+    def __init__(self, *args, pack_bits_dtype: Optional[tf.DType]=None, **kwargs):
+        tfp.distributions.Bernoulli.__init__(self, *args, **kwargs)
         BitpackSamplesMixin.__init__(self, pack_bits_dtype=pack_bits_dtype)
 
 class Binomial(BitpackSamplesMixin, tfp.distributions.Binomial):
-    def __init__(self, *args, pack_bits_dtype=tf.uint64, **kwargs):
-        # Initialize the Binomial distribution with dtype=tf.uint8
-        tfp.distributions.Binomial.__init__(self, *args, dtype=tf.uint8, **kwargs)
-        # Initialize BitpackSamplesMixin
+    def __init__(self, *args, pack_bits_dtype: Optional[tf.DType]=None, **kwargs):
+        tfp.distributions.Binomial.__init__(self, *args, **kwargs)
         BitpackSamplesMixin.__init__(self, pack_bits_dtype=pack_bits_dtype)
 
 class Categorical(BitpackSamplesMixin, tfp.distributions.Categorical):
-    def __init__(self, *args, pack_bits_dtype=tf.uint64, **kwargs):
-        # Initialize the Categorical distribution with dtype=tf.uint8
-        tfp.distributions.Categorical.__init__(self, *args, dtype=tf.uint8, **kwargs)
-        # Initialize BitpackSamplesMixin
+    def __init__(self, *args, pack_bits_dtype: Optional[tf.DType]=None, **kwargs):
+        tfp.distributions.Categorical.__init__(self, *args, **kwargs)
         BitpackSamplesMixin.__init__(self, pack_bits_dtype=pack_bits_dtype)
