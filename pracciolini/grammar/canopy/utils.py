@@ -1,7 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import tensorflow as tf
-import numpy as np
 import h5py
 
 def tensor_as_formatted_bit_vectors(tensor: tf.Tensor):
@@ -42,7 +40,6 @@ def generate_and_save_samples(model, output_path, num_iterations, batch_size):
         batch_size (int): Batch size for sample generation.
     """
     total_batches = num_iterations
-    samples_per_batch = batch_size
     sample_shape = model.output_shape  # Should be (batch_size, n_probs)
 
     # Create an HDF5 file to store the samples
@@ -55,12 +52,14 @@ def generate_and_save_samples(model, output_path, num_iterations, batch_size):
                                  dtype=np.uint8)
 
         # Generate and save samples in batches
+        def run():
+            input_data = tf.constant(0, shape=(1,))
+            return model.predict(x=input_data)
+
         for i in range(total_batches):
             print(f"Generating batch {i+1}/{total_batches}")
-            # Prepare dummy input data (your model's input doesn't seem to use it)
-            input_data = np.ones((batch_size, 1), dtype=np.uint64)
             # Generate samples
-            generated_samples = model.predict(x=input_data, batch_size=batch_size)[0]  # Access the samples output
+            generated_samples = run()
             # Append samples to the dataset
             current_shape = dset.shape[0]
             new_shape = current_shape + generated_samples.shape[0]

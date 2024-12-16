@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -9,7 +10,8 @@ from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.probability.distributions import Bernoulli
 from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
-from pracciolini.grammar.canopy.utils import tensor_as_formatted_bit_vectors
+from pracciolini.grammar.canopy.utils import tensor_as_formatted_bit_vectors, generate_and_save_samples, \
+    create_dataset_from_hdf5
 
 
 class SubGraphConstructionTests(unittest.TestCase):
@@ -167,18 +169,35 @@ class SubGraphConstructionTests(unittest.TestCase):
         sample_shape_tensor = tf.keras.Input(shape=(1,), dtype=tf.uint64)
         stub_input_data = tf.constant(value=(1, 1), dtype=np.int32)
 
-        num_events = 2 ** 6
+        num_events = 128
         iterations = 10
-        batch_size = 2 ** 25 - 1
+        batch_size = 2 ** 24
         dtype = tf.uint8
         sampler_dtype = tf.float64
         samples_per_batch = tf.dtypes.as_dtype(dtype).size * 8
-        probabilities = [float(0.1)/x for x in range(1,num_events)]
+        probabilities = [float(1.0)/float(x+1) for x in range(num_events)]
         total_samples = num_events * batch_size * samples_per_batch * iterations
         print(f"total samples: 2^{np.log(total_samples)/np.log(2)}")
         print(f"samples per iteration: 2^{np.log(total_samples/iterations)/np.log(2)}")
         print(f"samples per iteration per event: 2^{np.log(total_samples/iterations/num_events)/np.log(2)}")
         events = []
+
+        samples = BitpackedBernoulli(name=f"p_samples", probs=probabilities, batch_size=batch_size, dtype=dtype, sampler_dtype=sampler_dtype)(sample_shape_tensor)
+        #print(samples.shape, samples)
+        op_or = BitwiseXor()(samples)
+        outputs = [Expectation()(op_or), Expectation()(samples)]
+        model = tf.keras.Model(inputs=sample_shape_tensor, outputs=outputs)
+        model.compile()
+        model.summary()
+        log_dir = "~/projects/pracciolini/logs"
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+        model.save("10_events_6_gates_4_expectations.h5")
+
+        print(probabilities)
+        for i in range(iterations):
+            print(model.predict(x=stub_input_data, callbacks=[tensorboard_callback]))
+        return
         for p in probabilities:
             events.append(BitpackedBernoulli(name=f"p_{p}", probs=p, batch_size=batch_size, dtype=dtype, sampler_dtype=sampler_dtype)(sample_shape_tensor))
         output1 = BitwiseXor(name=f"xor_all")(events)
@@ -192,6 +211,14 @@ class SubGraphConstructionTests(unittest.TestCase):
         model.summary()
 
         model.save("10_events_6_gates_4_expectations.h5")
+
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        tflite_model = converter.convert()
+
+        # Save the TFLite model to a file
+        with open('10_events_6_gates_4_expectations.tflite', 'wb') as f:
+            f.write(tflite_model)
+
         #output_data = model.predict(x=stub_input_data, steps=iterations)
         #print(f"E[f(x)] = {output_data}")
         for iteration in range(iterations):
