@@ -19,18 +19,22 @@ def compute_batching_parameters(num_events: int,
 class SampleStreamingTests(unittest.TestCase):
 
     def test_stream_samples_to_disk(self):
-        num_events = 128
-        samples_per_event = 1024
+        # iterations, batch_size = compute_batching_parameters(num_events=num_events,
+        #                                                      samples_per_event=samples_per_event,
+        #                                                      sampling_precision=sampler_dtype,
+        #                                                      bitpack_dtype=dtype)
+
         dtype = tf.uint8
         sampler_dtype = tf.float64
-        iterations, batch_size = compute_batching_parameters(num_events=num_events,
-                                                             samples_per_event=samples_per_event,
-                                                             sampling_precision=sampler_dtype,
-                                                             bitpack_dtype=dtype)
+        num_events = 128
+        samples_per_event = 2 ** 20
+        batch_size = 2 ** 16
+        iterations = samples_per_event // batch_size
+
         stub_input = tf.keras.Input(shape=(1,), dtype=tf.uint64)
         samples = BitpackedBernoulli(
             name=f"p_samples",
-            probs=[1.0 / (x + 1) for x in range(num_events)],
+            probs=[float(1.0 / (x + 1.0)) for x in range(num_events)],
             batch_size=batch_size,
             dtype=dtype,
             sampler_dtype=sampler_dtype)(stub_input)
@@ -41,7 +45,7 @@ class SampleStreamingTests(unittest.TestCase):
         model.summary()
 
         # ---- Generate and Save Samples ---- #
-        output_file_path = 'samples.h5'  # Output file path
+        output_file_path = '/tmp/samples.h5'  # Output file path
         generate_and_save_samples(model, output_file_path, iterations, batch_size)
 
     def test_stream_samples_from_disk(self):
