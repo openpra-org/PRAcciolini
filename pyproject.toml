@@ -66,6 +66,9 @@ dev = [
     "pylint",
     "pylint[spelling]",
     "ruff",
+    "tensorboard",
+    "tensorboard_plugin_profile",
+    "etils",
     "twine"
 ]
 static-analysis = [
