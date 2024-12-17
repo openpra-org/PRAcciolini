@@ -427,7 +427,7 @@ class SubGraphConstructionTests(unittest.TestCase):
 
         return
 
-    def test_parametrized_seed_and_batch(self):
+    def test_parametrized_seed_and_batch_v0(self):
 
         batch_size = 9
         stub_input_data = tf.constant(value=batch_size, dtype=tf.int32)
@@ -449,49 +449,32 @@ class SubGraphConstructionTests(unittest.TestCase):
             outputs = model.predict(x=stub_input_data)
             print((outputs.numpy()))
 
-    def test_parametrized_seed_and_batch2(self):
-        batch_size = 9
-        width = 7
+    def test_parametrized_seed_and_batch(self):
+        batch_size = 2 ** 18
+        width = 5
         iterations = 3
-        probabilities = [float(1.0) / float(x + 1) for x in range(width)]
+        probabilities = [1.0 / (x + 1) for x in range(width)]
 
-        # Define input tensors for each parameter
-        probs_input = tf.keras.Input(shape=(width,), dtype=tf.float64, name='probs_input')
-        count_input = tf.keras.Input(shape=(), dtype=tf.int32, name='count_input')
-        bitpack_dtype_input = tf.keras.Input(shape=(), dtype=tf.string, name='bitpack_dtype_input')
-        dtype_input = tf.keras.Input(shape=(), dtype=tf.string, name='dtype_input')
-        seed_input = tf.keras.Input(shape=(), dtype=tf.int32, name='seed_input')
+        # Convert probabilities to a numpy array with shape (1, width)
+        probs_array = np.array([probabilities], dtype=np.float64)  # Shape: (1, width)
+        count_array = np.array([batch_size], dtype=np.int32)  # Shape: (1,)
 
-        # Define a lambda function to wrap the generate_bernoulli call
-        def generate_bernoulli_lambda(inputs):
-            probs, count, bitpack_dtype_str, dtype_str, seed = inputs
-            # Convert string dtype to actual dtype
-            bitpack_dtype = tf.dtypes.as_dtype(bitpack_dtype_str.numpy().decode('utf-8'))
-            dtype = tf.dtypes.as_dtype(dtype_str.numpy().decode('utf-8'))
-            return generate_bernoulli(probs=probs, count=count, bitpack_dtype=bitpack_dtype, dtype=dtype, seed=seed)
+        # Define Keras inputs for probabilities and count
+        probs_input = tf.keras.Input(shape=(width,), dtype=tf.float64)
+        count_input = tf.keras.Input(shape=(), dtype=tf.int32)
 
-        # Use the lambda function in the Lambda layer
-        samples_layer = tf.keras.layers.Lambda(
-            generate_bernoulli_lambda,
-            output_shape=(batch_size, width)
-        )([probs_input, count_input, bitpack_dtype_input, dtype_input, seed_input])
-
-        # Create the model
-        model = tf.keras.Model(inputs=[probs_input, count_input, bitpack_dtype_input, dtype_input, seed_input],
-                               outputs=samples_layer)
+        # Create the Lambda layer
+        samples_layer = BitpackedBernoulli()([probs_input, count_input])
+        expected_values_layer = Expectation()(samples_layer)
+        # Build the Keras model
+        model = tf.keras.Model(inputs=[probs_input, count_input], outputs=expected_values_layer)
         model.compile()
         model.summary()
 
-        # Prepare input data
-        probs_data = tf.constant(probabilities, dtype=tf.float64)
-        bitpack_dtype_data = tf.constant('uint8', dtype=tf.string)
-        dtype_data = tf.constant('float64', dtype=tf.string)
-        seed_data = tf.constant(1234, dtype=tf.int32)
-
-        # Run the model for the specified number of iterations
+        # Run the model prediction multiple times
         for i in range(iterations):
-            outputs = model.predict(x=[probs_data, batch_size, bitpack_dtype_data, dtype_data, seed_data])
-            print(outputs)
+            outputs = model.predict(x=[probs_array, count_array])
+            print(f"Iteration {i + 1} outputs:\n{tf.transpose(outputs)}\n")
 
 
 if __name__ == "__main__":

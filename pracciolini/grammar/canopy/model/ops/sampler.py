@@ -2,12 +2,9 @@ from typing import List
 
 import tensorflow as tf
 
-
-
 @tf.function
 def _compute_bits_in_dtype(tensor_type: tf.DType):
     return tf.dtypes.as_dtype(tensor_type).size * 8
-
 
 @tf.function
 def _compute_sample_shape(probs: tf.Tensor,
@@ -19,7 +16,6 @@ def _compute_sample_shape(probs: tf.Tensor,
     num_bits = _compute_bits_in_dtype(bitpack_dtype)
     return tf.cast([batch_size, num_events, num_bits], dtype=tf.int32)
 
-
 @tf.function
 def _compute_bit_positions(bitpack_dtype: tf.DType):
     num_bits = _compute_bits_in_dtype(bitpack_dtype)
@@ -27,7 +23,6 @@ def _compute_bit_positions(bitpack_dtype: tf.DType):
     positions = tf.cast(positions, bitpack_dtype)
     positions = tf.reshape(positions, [1, 1, -1])  # Shape: [1, 1, num_bits]
     return positions
-
 
 @tf.function
 def generate_bernoulli(probs: tf.Tensor,
