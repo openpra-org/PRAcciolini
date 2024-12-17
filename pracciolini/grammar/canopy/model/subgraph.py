@@ -12,8 +12,8 @@ from pracciolini.grammar.canopy.io import (
     DAGs as IoDAGs,
 )
 from pracciolini.grammar.canopy.model.layers import BitwiseNot, BitwiseAnd, BitwiseOr, BitwiseXor, BitwiseNand, \
-    BitwiseNor, BitwiseXnor, Expectation
-from pracciolini.grammar.canopy.probability import monte_carlo
+    BitwiseNor, BitwiseXnor, Expectation, BitpackedBernoulli
+from pracciolini.grammar.canopy.model.ops import bitwise, monte_carlo, sampler
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.buffer_manager import BufferManager
 from pracciolini.grammar.canopy.model.operator import Operator, OperatorArgs
@@ -47,20 +47,19 @@ class SubGraph:
 
         # Mapping from OpCode to TensorFlow functions
         self._BITWISE_OPCODES = {
-            IoOpCode.OpCode.BITWISE_NOT: tf.bitwise.invert,
-            IoOpCode.OpCode.BITWISE_AND: tf.bitwise.bitwise_and,
-            IoOpCode.OpCode.BITWISE_OR: tf.bitwise.bitwise_or,
-            IoOpCode.OpCode.BITWISE_XOR: tf.bitwise.bitwise_xor,
-            IoOpCode.OpCode.RESHAPE: tf.reshape,
-            IoOpCode.OpCode.BITWISE_NAND: lambda a, b: tf.bitwise.invert(tf.bitwise.bitwise_and(a, b)),
-            IoOpCode.OpCode.BITWISE_NOR: lambda a, b: tf.bitwise.invert(tf.bitwise.bitwise_or(a, b)),
-            IoOpCode.OpCode.BITWISE_XNOR: lambda a, b: tf.bitwise.invert(tf.bitwise.bitwise_xor(a, b)),
+            IoOpCode.OpCode.BITWISE_NOT: bitwise.bitwise_not,
+            IoOpCode.OpCode.BITWISE_AND: bitwise.bitwise_and,
+            IoOpCode.OpCode.BITWISE_OR: bitwise.bitwise_or,
+            IoOpCode.OpCode.BITWISE_XOR: bitwise.bitwise_xor,
+            IoOpCode.OpCode.BITWISE_NAND: bitwise.bitwise_nand,
+            IoOpCode.OpCode.BITWISE_NOR: bitwise.bitwise_nor,
+            IoOpCode.OpCode.BITWISE_XNOR: bitwise.bitwise_xnor
         }
 
         # Mapping from OpCode to TensorFlow functions for statistical operations
         self._STATISTICAL_OPCODES = {
-            IoOpCode.OpCode.MC_EXPECT_VAL: monte_carlo.expectation,
-            IoOpCode.OpCode.MC_VAR_LOSS: monte_carlo.variational_loss,
+            IoOpCode.OpCode.MC_EXPECT_VAL: monte_carlo.tally,
+            IoOpCode.OpCode.MC_SAMPLER: sampler.generate_bernoulli
         }
 
         # Define the set of supported opcodes
@@ -71,11 +70,9 @@ class SubGraph:
             "and": IoOpCode.OpCode.BITWISE_AND,
             "or": IoOpCode.OpCode.BITWISE_OR,
             "xor": IoOpCode.OpCode.BITWISE_XOR,
-            "reshape": IoOpCode.OpCode.RESHAPE,
             "nand": IoOpCode.OpCode.BITWISE_NAND,
             "nor": IoOpCode.OpCode.BITWISE_NOR,
-            "xnor": IoOpCode.OpCode.BITWISE_XNOR,
-            "tally": IoOpCode.OpCode.MC_EXPECT_VAL
+            "xnor": IoOpCode.OpCode.BITWISE_XNOR
         }
 
         self._BITWISE_LAYER_CLASSES = {
@@ -90,6 +87,7 @@ class SubGraph:
 
         self._STATISTICAL_LAYER_CLASSES = {
             IoOpCode.OpCode.MC_EXPECT_VAL: Expectation,
+            IoOpCode.OpCode.MC_SAMPLER: BitpackedBernoulli
         }
 
     def add_tensor(self, tensor: Tensor) -> int:
@@ -112,6 +110,9 @@ class SubGraph:
         # Initialize dependencies for the new tensor
         self._dependencies[tensor] = set()
         return tensor_idx
+
+    def register_independent_variable(self):
+        pass
 
     def register_input(self, tensor: Tensor):
         """
@@ -314,7 +315,7 @@ class SubGraph:
 
         # Create the output tensor
         output_tensor = Tensor(
-            tensor=monte_carlo.expectation(operand.tf_tensor),
+            tensor=monte_carlo.tally(operand.tf_tensor),
             name=name,
         )
 
@@ -362,11 +363,9 @@ class SubGraph:
             if opcode == IoOpCode.OpCode.BITWISE_NOT:
                 if len(operands) != 1:
                     raise ValueError("BITWISE_NOT operation requires exactly one operand.")
-                tf_output = tf_function(operands[0].tf_tensor)
-            else:
-                if len(operands) < 2:
+            elif len(operands) < 2:
                     raise ValueError(f"Operation with opcode {opcode} requires at least two operands.")
-                tf_output = reduce(tf_function, [op.tf_tensor for op in operands])
+            tf_output = tf_function([op.tf_tensor for op in operands])
 
         # Create output tensor
         output_tensor = Tensor(tf_output, name=name)
@@ -833,21 +832,14 @@ class SubGraph:
                 bitwise_layer = layer_class(name=operator.name, dtype=input_tensors[0].dtype)
 
                 # Apply the layer
-                if opcode == IoOpCode.OpCode.BITWISE_NOT:
-                    if len(input_tensors) != 1:
-                        raise ValueError("BITWISE_NOT operation requires exactly one input.")
-                    result = bitwise_layer(input_tensors[0])
-                else:
-                    if len(input_tensors) < 2:
-                        raise ValueError(f"Operation with opcode {opcode} requires at least two inputs.")
-                    # Reduce over input tensors using the layer
-                    result = reduce(lambda acc, x: bitwise_layer([acc, x]), input_tensors)
+                result = bitwise_layer(input_tensors)
 
                 # Map output tensor
                 if len(operator.outputs) != 1:
                     raise ValueError("Only operators with a single output are supported.")
                 output_tensor = self._index_to_tensor[operator.outputs[0]]
                 tensor_mapping[output_tensor] = result
+
             elif opcode == IoOpCode.OpCode.MC_EXPECT_VAL:
                 if len(input_tensors) != 1:
                     raise ValueError("MC_EXPECT_VAL operation requires exactly one input.")
