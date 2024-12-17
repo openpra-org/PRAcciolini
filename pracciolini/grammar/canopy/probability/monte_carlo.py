@@ -82,13 +82,11 @@ def expectation_with_confidence_interval(x: tf.Tensor, confidence_level: float =
     one_plus_conf_div_by_2 = tf.math.divide(x=one_plus_conf, y=tf.constant(2, dtype=dtype))
     z = dist.quantile(one_plus_conf_div_by_2)
     # Calculate the margin of error
-    margin_of_error = z * std_err
+    margin_of_error = tf.math.multiply(x=z, y=std_err)
     # Calculate confidence interval limits
-    lower_limit = expected_value - margin_of_error
-    upper_limit = expected_value + margin_of_error
+    lower_limit = tf.math.subtract(x=expected_value, y=margin_of_error)
+    upper_limit = tf.math.add(x=expected_value, y=margin_of_error)
     # Ensure limits are within [0, 1]
-    #lower_limit = tf.clip_by_value(lower_limit, 0.0, 1.0)
-    #upper_limit = tf.clip_by_value(upper_limit, 0.0, 1.0)
     return lower_limit, expected_value, upper_limit
 
 
