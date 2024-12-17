@@ -123,16 +123,12 @@ class BitpackedBernoulli(Layer):
         return super(BitpackedBernoulli, self).__call__(*args, **kwargs)
 
     def call(self, inputs):
-        probs_batch, count_batch = inputs
-        # Squeeze to remove the batch dimension for probs
-        probs = tf.squeeze(probs_batch, axis=0)
-        # Extract the scalar count value
-        count = count_batch[0]
-        # Call the generate_bernoulli function with the correct arguments
+        probs_batch, count_batch = inputs  # probs_batch: [batch_size, num_events], count_batch: [batch_size]
+        n_sample_packs_per_probability = count_batch[0]  # Assuming same count for all samples
         return generate_bernoulli(
-            probs=probs,
-            count=count,
+            probs=probs_batch,
+            n_sample_packs_per_probability=n_sample_packs_per_probability,
             bitpack_dtype=tf.uint8,
-            dtype=tf.float64,
-            seed=1234
+            dtype=tf.float32,
+            seed=None
         )
