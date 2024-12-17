@@ -1,8 +1,6 @@
 import unittest
 import tensorflow as tf
 
-from pracciolini.grammar.canopy.probability.bitpack import pack_tensor_bits
-
 
 class TestBitPackTensor(unittest.TestCase):
     def test_base_case_uint8(self):
@@ -10,7 +8,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test the base case with a simple boolean tensor and dtype tf.uint8
         """
         bool_tensor = tf.constant([[True, False, True, False]], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         # Bits are packed as [1,0,1,0,0,0,0,0] (after padding to 8 bits)
         # Expected packed value is 160 (binary 10100000)
@@ -24,7 +22,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test the base case with a simple boolean tensor and dtype tf.uint16
         """
         bool_tensor = tf.constant([[True, False, True, False]], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint16)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint16)
 
         # The packed bits are [1, 0, 1, 0, ... 0], starting from MSB (bit 15)
         # Expected packed value is 40960 (binary 1010000000000000)
@@ -38,7 +36,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test with a tensor of all False values
         """
         bool_tensor = tf.constant([[False] * 10], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         # After padding, bits are all zeros
         expected_packed = tf.constant([[0, 0]], dtype=tf.uint8)
@@ -50,7 +48,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test with a tensor of all True values
         """
         bool_tensor = tf.constant([[True] * 10], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         # For tf.uint8, n_bits = 8
         # Bits after padding: [True]*10 + [False]*6 to make 16 bits
@@ -77,7 +75,7 @@ class TestBitPackTensor(unittest.TestCase):
             [True, False, True, False],
             [False, True, False, True]
         ], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         # First row: 10100000 => 160
         # Second row: 01010000 => 80
@@ -93,7 +91,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test with number of bits not a multiple of n_bits
         """
         bool_tensor = tf.constant([[True, False, True, False, True, False, True]], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         # Bits after padding: [1,0,1,0,1,0,1,0] => 170
         expected_packed = tf.constant([[170]], dtype=tf.uint8)
@@ -105,7 +103,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test with a larger tensor of shape (4,16)
         """
         bool_tensor = tf.constant([[bool((i + j) % 2) for j in range(16)] for i in range(4)], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint16)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint16)
 
         # Expected values alternate between 0x5555 and 0xAAAA
         expected_values = []
@@ -129,7 +127,7 @@ class TestBitPackTensor(unittest.TestCase):
             tf.uint64: 18374686479671623680
         }
         for dtype in [tf.uint8, tf.uint16, tf.uint32, tf.uint64]:
-            packed_tensor = pack_tensor_bits(bool_tensor, dtype=dtype)
+            packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=dtype)
             expected_packed = tf.constant([[expected_values[dtype]]], dtype=dtype)
             tf.debugging.assert_equal(packed_tensor, expected_packed)
 
@@ -139,7 +137,7 @@ class TestBitPackTensor(unittest.TestCase):
         Test the function with an empty tensor
         """
         bool_tensor = tf.constant([[]], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
         expected_packed = tf.constant([[]], dtype=tf.uint8)
         tf.debugging.assert_equal(packed_tensor, expected_packed)
 
@@ -149,7 +147,7 @@ class TestBitPackTensor(unittest.TestCase):
         """
         bool_tensor = tf.constant([[True, False]], dtype=tf.bool)
         with self.assertRaises(ValueError):
-            pack_tensor_bits(bool_tensor, dtype=tf.float32)
+            DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.float32)
 
     def test_non_boolean_input(self):
         """
@@ -157,7 +155,7 @@ class TestBitPackTensor(unittest.TestCase):
         """
         int_tensor = tf.constant([[1, 0, 1, 0]], dtype=tf.int32)
         with self.assertRaises(ValueError):
-            pack_tensor_bits(int_tensor, dtype=tf.uint8)
+            DEPRECATED_pack_tensor_bits(int_tensor, dtype=tf.uint8)
 
     def test_rank_greater_than_two(self):
         """
@@ -165,7 +163,7 @@ class TestBitPackTensor(unittest.TestCase):
         """
         bool_tensor = tf.constant([[[True, False], [False, True]]], dtype=tf.bool)
         with self.assertRaises(ValueError):
-            pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+            DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
     def test_zero_dimensional_tensor(self):
         """
@@ -173,7 +171,7 @@ class TestBitPackTensor(unittest.TestCase):
         """
         bool_tensor = tf.constant(True, dtype=tf.bool)
         with self.assertRaises(ValueError):
-            pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+            DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
     def test_shape_mismatch(self):
         """
@@ -181,14 +179,14 @@ class TestBitPackTensor(unittest.TestCase):
         """
         bool_tensor = tf.constant([True, False, True], dtype=tf.bool)
         with self.assertRaises(ValueError):
-            pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+            DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
     def test_large_dtype(self):
         """
         Test with a large dtype like tf.uint64 to check correct bit packing
         """
         bool_tensor = tf.constant([[True] * 60], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint64)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint64)
 
         # Expected value: (2^60 - 1) shifted left by 4 bits due to padding
         expected_value = ((1 << 60) - 1) << 4
@@ -203,7 +201,7 @@ class TestBitPackTensor(unittest.TestCase):
         bool_tensor = tf.constant([
             [True] * 9 + [False] * 7
         ], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         expected_packed = tf.constant([[255, 128]], dtype=tf.uint8)
 
@@ -215,7 +213,7 @@ class TestBitPackTensor(unittest.TestCase):
         """
         num_rows = 1000
         bool_tensor = tf.constant([[True] * 10] * num_rows, dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint16)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint16)
 
         expected_value = ((1 << 10) - 1) << 6
         expected_packed = tf.constant([[expected_value]] * num_rows, dtype=tf.uint16)
@@ -229,7 +227,7 @@ class TestBitPackTensor(unittest.TestCase):
         bool_tensor = tf.constant([
             [True, False, True, False, True]  # 5 bits
         ], dtype=tf.bool)
-        packed_tensor = pack_tensor_bits(bool_tensor, dtype=tf.uint8)
+        packed_tensor = DEPRECATED_pack_tensor_bits(bool_tensor, dtype=tf.uint8)
 
         expected_packed = tf.constant([[168]], dtype=tf.uint8)  # 0b10101000
 

@@ -26,10 +26,10 @@ class SampleStreamingTests(unittest.TestCase):
 
         dtype = tf.uint8
         sampler_dtype = tf.float64
-        num_events = 128
-        samples_per_event = 2 ** 20
+        num_events = 1024
+        samples_per_event = 2 ** 20 ## ~ 1 million samples per basic event, 1 billion samples to collect overall
         batch_size = 2 ** 16
-        iterations = samples_per_event // batch_size
+        iterations = samples_per_event // batch_size # ~67 million samples per batch
 
         stub_input = tf.keras.Input(shape=(1,), dtype=tf.uint64)
         samples = BitpackedBernoulli(
@@ -49,13 +49,17 @@ class SampleStreamingTests(unittest.TestCase):
         generate_and_save_samples(model, output_file_path, iterations, batch_size)
 
     def test_stream_samples_from_disk(self):
-        output_file_path = 'samples.h5'  # Output file path
-        dataset = create_dataset_from_hdf5(output_file_path, batch_size=1024)
-
+        output_file_path = '/tmp/samples.h5'  # Output file path
+        total_samples = 2 ** 20
+        batch_size = 2 ** 16
+        dataset: tf.data.Dataset = create_dataset_from_hdf5(output_file_path).take(total_samples).batch(batch_size=batch_size, num_parallel_calls=128)
         # Example usage of the dataset
-        for batch in dataset.take(1):
-            print(f"Batch shape: {batch.shape}")
-            print(batch)
+        iteration = 0
+
+        for batch in dataset:
+            iteration += 1
+            print(f"iteration: {iteration} batch_items: {batch.shape[0]}, num_basic_events: {batch.shape[1]}")
+            #print(batch)
 
 if __name__ == '__main__':
     unittest.main()

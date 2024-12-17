@@ -5,9 +5,6 @@ import tensorflow as tf
 from tensorflow import Operation
 from tensorflow.python.framework.ops import _EagerTensorBase
 
-from pracciolini.grammar.canopy.probability.bitpack import pack_tensor_bits
-from pracciolini.grammar.canopy.probability.sampler import generate_uniform_samples
-
 
 def build_probabilities_from_event_map(
     event_map: OrderedDict[str, str],
@@ -67,7 +64,7 @@ def sample_probabilities_bit_packed(
     samples_dim = (probabilities.shape[0], sample_count)
     samples = generate_uniform_samples(samples_dim, seed=seed, dtype=sampler_dtype)
     sampled_probabilities: tf.Tensor = probabilities[:, tf.newaxis] >= samples
-    packed_samples = pack_tensor_bits(sampled_probabilities, dtype=bitpack_dtype)
+    packed_samples = DEPRECATED_pack_tensor_bits(sampled_probabilities, dtype=bitpack_dtype)
     return packed_samples, OrderedDict({
         "seed": seed,
         "num_samples": sample_count,

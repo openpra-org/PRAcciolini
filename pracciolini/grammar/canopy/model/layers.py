@@ -1,7 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 
-from pracciolini.grammar.canopy.probability.monte_carlo import expectation
+from pracciolini.grammar.canopy.model.ops.bitwise import bitwise_nary_op, bitwise_not, bitwise_or, bitwise_xor, bitwise_nand, \
+    bitwise_nor, bitwise_xnor
+from pracciolini.grammar.canopy.model.ops.monte_carlo import tally
+from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
 
 
 class Expectation(Layer):
@@ -24,41 +27,7 @@ class Expectation(Layer):
         Returns:
             tf.Tensor: Output tensor after computing the expected value.
         """
-        return expectation(inputs)
-
-
-@tf.function
-def bitwise_nary_op(bin_fn, inputs):
-    """
-    Applies the bitwise op across the 'num_events' dimension.
-
-    Args:
-        bin_fn (function): The bitwise function to be applied.
-        inputs (tf.Tensor): Input tensor with shape (batch_size, num_events).
-
-    Returns:
-        tf.Tensor: Output tensor with shape (batch_size, 1) after reducing.
-    """
-    # Transpose the inputs to have shape (num_events, batch_size)
-    transposed_inputs = tf.transpose(inputs, perm=[1, 0])
-
-    # Initialize the accumulation with zeros
-    initial_value = tf.zeros_like(transposed_inputs[0])
-
-    # Use tf.scan to apply bitwise OP across the num_events dimension
-    result = tf.scan(
-        fn=lambda a, b: bin_fn(a, b),
-        elems=transposed_inputs,
-        initializer=initial_value,
-    )
-    # result has shape (num_events, batch_size)
-
-    # Get the final accumulated result
-    final_result = result[-1]  # Shape: (batch_size,)
-
-    # Reshape result to (batch_size, 1)
-    final_result = tf.expand_dims(final_result, axis=1)
-    return final_result
+        return tally(inputs)
 
 
 class BitwiseNot(Layer):
@@ -67,7 +36,7 @@ class BitwiseNot(Layer):
 
     @tf.function
     def call(self, inputs):
-        return tf.bitwise.invert(inputs)
+        return bitwise_not(inputs)
 
 
 class BitwiseAnd(Layer):
@@ -84,7 +53,7 @@ class BitwiseOr(Layer):
 
     @tf.function
     def call(self, inputs):
-        return bitwise_nary_op(tf.bitwise.bitwise_or, inputs)
+        return bitwise_or(inputs)
 
 
 class BitwiseXor(Layer):
@@ -93,7 +62,7 @@ class BitwiseXor(Layer):
 
     @tf.function
     def call(self, inputs):
-        return bitwise_nary_op(tf.bitwise.bitwise_xor, inputs)
+        return bitwise_xor(inputs)
 
 
 class BitwiseNand(Layer):
@@ -102,7 +71,7 @@ class BitwiseNand(Layer):
 
     @tf.function
     def call(self, inputs):
-        return tf.bitwise.invert(bitwise_nary_op(tf.bitwise.bitwise_and, inputs))
+        return bitwise_nand(inputs)
 
 
 class BitwiseNor(Layer):
@@ -111,7 +80,7 @@ class BitwiseNor(Layer):
 
     @tf.function
     def call(self, inputs):
-        return tf.bitwise.invert(bitwise_nary_op(tf.bitwise.bitwise_or, inputs))
+        return bitwise_nor(inputs)
 
 
 class BitwiseXnor(Layer):
@@ -120,7 +89,7 @@ class BitwiseXnor(Layer):
 
     @tf.function
     def call(self, inputs):
-        return tf.bitwise.invert(bitwise_nary_op(tf.bitwise.bitwise_xor, inputs))
+        return bitwise_xnor(inputs)
 
 
 class BitpackedBernoulli(Layer):
@@ -169,6 +138,13 @@ class BitpackedBernoulli(Layer):
 
     @tf.function
     def call(self, inputs):
+        # samples = generate_bernoulli(probs=self.probs,
+        #                              count=inputs,
+        #                              #count=tf.cast(tf.squeeze(inputs), tf.int32),
+        #                              bitpack_dtype=self._bitpack_dtype,
+        #                              dtype=self._sampler_dtype)
+        # return samples
+        print(inputs, inputs.shape)
         batch_size = tf.cast(self._batch_size, dtype=tf.int32)
         num_events = tf.shape(self.probs)[0]
         num_bits = tf.cast(self._bitpack_num_bits_to_sample, dtype=tf.int32)

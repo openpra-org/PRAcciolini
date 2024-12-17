@@ -67,14 +67,13 @@ def generate_and_save_samples(model, output_path, num_iterations, batch_size):
             dset[current_shape:new_shape, :] = generated_samples.astype(np.uint8)
 
 
-def create_dataset_from_hdf5(file_path, dataset_name='samples', batch_size=1024):
+def create_dataset_from_hdf5(file_path, dataset_name='samples') -> tf.data.Dataset:
     """
     Creates a tf.data.Dataset from an HDF5 file.
 
     Args:
         file_path (str): Path to the HDF5 file.
         dataset_name (str): Name of the dataset inside the HDF5 file.
-        batch_size (int): Batch size for the dataset.
 
     Returns:
         tf.data.Dataset: The dataset object for streaming samples.
@@ -89,11 +88,11 @@ def create_dataset_from_hdf5(file_path, dataset_name='samples', batch_size=1024)
     with h5py.File(file_path, 'r') as hf:
         data_shape = hf[dataset_name].shape
 
-    dataset = tf.data.Dataset.from_generator(
+    dataset: tf.data.Dataset = tf.data.Dataset.from_generator(
         generator,
         output_types=tf.uint8,
         output_shapes=(data_shape[1],)
     )
 
-    dataset = dataset.batch(batch_size)
+    #dataset = dataset.batch(batch_size)
     return dataset

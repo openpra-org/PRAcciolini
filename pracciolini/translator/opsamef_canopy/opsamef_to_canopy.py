@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Tuple
 from collections import OrderedDict
 
 from lxml.etree import Element
@@ -6,6 +6,7 @@ import tensorflow as tf
 
 from pracciolini.core.decorators import translation
 from pracciolini.grammar.canopy.io.OpCode import OpCode
+from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.openpsa.opsamef import OpsaMefXmlRegistry
@@ -13,7 +14,6 @@ from pracciolini.grammar.openpsa.validate import read_openpsa_xml
 from pracciolini.grammar.openpsa.xml.expression.logical import NotExpression, LogicalExpression
 from pracciolini.grammar.openpsa.xml.fault_tree import GateReference
 from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference
-from pracciolini.grammar.canopy.probability.sampler import bit_pack_samples
 
 
 def build_operation(gate_xml, subgraph, input_tensors_map):
@@ -49,20 +49,18 @@ def get_event_definitions(tree: Element) -> Set[str]:
         events.add(event_ref.name)
     return events
 
-def build_basic_event_definition(xml, subgraph: SubGraph, inputs):
-    be = OpsaMefXmlRegistry.instance().build(xml)
-    if be.name in inputs:
-        return be.name, inputs[be.name]
-    be_samples = Tensor(tf.constant(bit_pack_samples(float(be.value)), name=be.name), name=be.name)
-    subgraph.register_input(be_samples)
-    inputs[be.name] = be_samples
-    return be.name, be_samples
+def _build_event_tensor(event) -> Tensor:
+    probs: tf.Tensor = tf.constant([float(event.value), float(event.value)], name=event.name) # needs to be at-least 2items for now
+    tf_tensor = generate_bernoulli(probs=probs, count=128, bitpack_dtype=tf.uint8, dtype=tf.float64)
+    print(tf_tensor)
+    samples = Tensor(tf_tensor, name=event.name)
+    return samples
 
 def build_event_definition(xml, subgraph: SubGraph, inputs):
     event = OpsaMefXmlRegistry.instance().build(xml)
     if event.name in inputs:
         return event.name, inputs[event.name]
-    samples = Tensor(tf.constant(bit_pack_samples(float(event.value)), name=event.name), name=event.name)
+    samples = _build_event_tensor(event)
     subgraph.register_input(samples)
     inputs[event.name] = samples
     return event.name, samples
@@ -159,7 +157,7 @@ def build_definitions(tree: Element, subgraph: SubGraph):
 
     be_defs_xml = tree.xpath("//define-basic-event | //define-house-event")
     for be_xml in be_defs_xml:
-        name, tensor = build_basic_event_definition(be_xml, subgraph, inputs)
+        name, tensor = build_event_definition(be_xml, subgraph, inputs)
         if name is not None and name in unvisited_event_definitions:
             unvisited_event_definitions.remove(name)
 

@@ -29,3 +29,4 @@ class OpCode(object):
     RESHAPE = 160
     MC_EXPECT_VAL = 240
     MC_VAR_LOSS = 241
+    MC_SAMPLER = 242
