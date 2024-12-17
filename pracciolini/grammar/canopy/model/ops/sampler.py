@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import tensorflow as tf
 
@@ -7,14 +7,26 @@ def _compute_bits_in_dtype(tensor_type: tf.DType):
     return tf.dtypes.as_dtype(tensor_type).size * 8
 
 @tf.function
-def _compute_sample_shape(probs: tf.Tensor,
-                          count: tf.int32,
+def _compute_sample_shape(probs: tf.Tensor,       # [batch_size, num_events].
+                          n_sample_packs_per_probability: tf.int32,
                           bitpack_dtype: tf.DType,
-                          ) -> List:
-    batch_size = tf.cast(count, dtype=tf.int32)
-    num_events = tf.shape(probs)[0] # tf.shape(probs)[0]
-    num_bits = _compute_bits_in_dtype(bitpack_dtype)
-    return tf.cast([batch_size, num_events, num_bits], dtype=tf.int32)
+                          ) -> Tuple[List, List]:
+    """
+    Generates bit-packed Bernoulli random variables based on input probabilities.
+        Args:
+        probs (tf.Tensor): Tensor of probabilities with shape [batch_size, num_events].
+        n_sample_packs_per_probability (int): Number of sample packs to generate per probability.
+        bitpack_dtype (tf.DType): Data type for bit-packing (e.g., tf.uint8).
+    """
+    batch_size = tf.cast(tf.shape(probs)[0], dtype=tf.int32)
+    num_events = tf.cast(tf.shape(probs)[1], dtype=tf.int32)
+    num_bits_per_pack = tf.cast(_compute_bits_in_dtype(bitpack_dtype), dtype=tf.int32)
+    num_bits = tf.math.multiply(x=num_bits_per_pack, y=n_sample_packs_per_probability)
+    # shape for sampling
+    sample_shape = tf.cast([batch_size, num_events, num_bits], dtype=tf.int32)
+    # Reshape samples to prepare for bit-packing
+    samples_reshaped = [batch_size, num_events, n_sample_packs_per_probability, num_bits_per_pack]
+    return sample_shape, samples_reshaped
 
 @tf.function
 def _compute_bit_positions(bitpack_dtype: tf.DType):
@@ -25,20 +37,51 @@ def _compute_bit_positions(bitpack_dtype: tf.DType):
     return positions
 
 @tf.function
-def generate_bernoulli(probs: tf.Tensor,
-                       count: tf.int32, # [batch_size, num_events, num_bits]
-                       bitpack_dtype: tf.DType,
-                       dtype: tf.DType = tf.float64,
-                       seed: int | tf.DType = None,
-                       ) -> tf.Tensor:
-    shape = _compute_sample_shape(probs, count, bitpack_dtype)
-    dist = tf.random.uniform(shape=shape, minval=0, maxval=1, dtype=dtype, seed=seed)
-    prob_reshaped = tf.cast(tf.reshape(probs, [1, shape[1], 1]), dtype=dtype)
-    # Perform comparison to generate samples
-    samples = tf.cast(dist < prob_reshaped, dtype=bitpack_dtype)
+def generate_bernoulli(
+    probs: tf.Tensor,
+    n_sample_packs_per_probability: tf.int32,
+    bitpack_dtype: tf.DType,
+    dtype: tf.DType = tf.float64,
+    seed: int = None,
+) -> tf.Tensor:
+    """
+    Generates bit-packed Bernoulli random variables based on input probabilities.
+
+    Args:
+        probs (tf.Tensor): Tensor of probabilities with shape [batch_size, num_events].
+        n_sample_packs_per_probability (int): Number of sample packs to generate per probability.
+        bitpack_dtype (tf.DType): Data type for bit-packing (e.g., tf.uint8).
+        dtype (tf.DType, optional): Data type for sampling. Defaults to tf.float64.
+        seed (int, optional): Random seed. Defaults to None.
+
+    Returns:
+        tf.Tensor: Bit-packed tensor of Bernoulli samples with shape [batch_size, num_events].
+    """
+    sample_shape, samples_bitpack_reshape = _compute_sample_shape(probs=probs,
+                                         n_sample_packs_per_probability=n_sample_packs_per_probability,
+                                         bitpack_dtype=bitpack_dtype)
+
+    # sample_shape = [batch_size, num_events, n_sample_packs_per_probability * bitpack_dtype * 8].
+    num_bits   = sample_shape[2]
+
+    # Prepare probabilities to match the shape of 'dist'
+    probs_cast = tf.cast(probs, dtype=dtype)
+    probs_expanded = tf.expand_dims(probs_cast, axis=-1)  # Shape: [batch_size, num_events, 1]
+    probs_tiled = tf.tile(probs_expanded, [1, 1, num_bits])  # Shape: [batch_size, num_events, num_bits]
+
+    # Generate uniform random values
+    dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype, seed=seed)
+    # Generate Bernoulli samples
+    samples = tf.cast(dist < probs_tiled, dtype=bitpack_dtype)  # Shape: [batch_size, num_events, num_bits]
+    # Reshape samples to prepare for bit-packing
+    samples_reshaped = tf.reshape(samples, samples_bitpack_reshape) # Shape: [batch_size, num_events, n_sample_packs_per_probability, num_bits_per_pack]
+
+    # Compute bit positions using the helper function
+    positions = _compute_bit_positions(bitpack_dtype)  # Shape: [1, 1, 1, num_bits_per_pack]
     # Shift bits accordingly
-    shifted_bit_positions = _compute_bit_positions(bitpack_dtype)
-    shifted_bits = tf.bitwise.left_shift(samples, shifted_bit_positions)
+    shifted_bits = tf.bitwise.left_shift(samples_reshaped, positions)  # Same shape as samples_reshaped
     # Sum over bits to get packed integers
-    packed_bits = tf.reduce_sum(shifted_bits, axis=-1)  # Shape: [count, len(probs)]
-    return packed_bits  # Output tensor of shape [count, len(probs)], dtype bitpack_dtype
+    packed_bits = tf.reduce_sum(shifted_bits, axis=-1)  # Shape: [batch_size, num_events, n_sample_packs_per_probability]
+
+    # Return the packed bits
+    return packed_bits  # Output tensor with shape [batch_size, num_events, n_sample_packs_per_probability]

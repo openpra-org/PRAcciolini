@@ -8,6 +8,7 @@ import tensorflow as tf
 
 from pracciolini.grammar.canopy.model.layers import BitpackedBernoulli, BitwiseOr, BitwiseXor, Expectation, BitwiseAnd, \
     BitwiseNot, BitwiseXnor, BitwiseNand, BitwiseNor
+from pracciolini.grammar.canopy.model.ops.monte_carlo import tally
 from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
@@ -450,32 +451,53 @@ class SubGraphConstructionTests(unittest.TestCase):
             print((outputs.numpy()))
 
     def test_parametrized_seed_and_batch(self):
-        batch_size = 2 ** 18
-        width = 5
-        iterations = 3
+        float_type = tf.float32
+        num_samples = 2 ** 20                     # Number of samples (i.e. total work done)
+        batch_size = 2048                          # size of each batch (num_batches should be num_samples/batch_size)
+        n_sample_packs_per_probability = 2 ** 4  # Number of samples to generate per event/probability
+        width = 1024                               # Number of events/probabilities
         probabilities = [1.0 / (x + 1) for x in range(width)]
 
-        # Convert probabilities to a numpy array with shape (1, width)
-        probs_array = np.array([probabilities], dtype=np.float64)  # Shape: (1, width)
-        count_array = np.array([batch_size], dtype=np.int32)  # Shape: (1,)
+        # Create input data with multiple samples
+        probs_array = np.array([probabilities for _ in range(num_samples)], dtype=np.float32)  # Shape: [batch_size, width]
+        n_sample_packs_array = np.array([n_sample_packs_per_probability for _ in range(num_samples)], dtype=np.int32)  # Shape: [batch_size]
 
-        # Define Keras inputs for probabilities and count
-        probs_input = tf.keras.Input(shape=(width,), dtype=tf.float64)
-        count_input = tf.keras.Input(shape=(), dtype=tf.int32)
+        # Define Keras inputs
+        probs_input = tf.keras.Input(shape=(width,), dtype=float_type)
+        n_sample_packs_input = tf.keras.Input(shape=(), dtype=tf.int32)
 
-        # Create the Lambda layer
-        samples_layer = BitpackedBernoulli()([probs_input, count_input])
-        expected_values_layer = Expectation()(samples_layer)
-        # Build the Keras model
-        model = tf.keras.Model(inputs=[probs_input, count_input], outputs=expected_values_layer)
+        # Create the layers
+        samples_layer = BitpackedBernoulli()([probs_input, n_sample_packs_input])
+        #expected_values_layer = Expectation()(samples_layer)
+        # Build and compile the Keras model
+        model = tf.keras.Model(inputs=[probs_input, n_sample_packs_input], outputs=samples_layer)
         model.compile()
         model.summary()
 
-        # Run the model prediction multiple times
-        for i in range(iterations):
-            outputs = model.predict(x=[probs_array, count_array])
-            print(f"Iteration {i + 1} outputs:\n{tf.transpose(outputs)}\n")
+        # Run the model prediction
+        model.predict(
+            x=[probs_array, n_sample_packs_array],
+            batch_size=batch_size  # Controls how many samples are processed at once
+        )
+        #print(f"Outputs:\n{outputs}\n")
 
+    def test_generate_bernoulli(self):
+        batch_size = 2
+        num_events = 3
+        n_sample_packs_per_probability = 2 ** 24  # Number of sample packs per probability
+        probs = tf.constant([[0.2, 0.5328, 0.8, 0.999999]], dtype=tf.float64)
+        bitpack_dtype = tf.uint8
+
+        packed_bits = generate_bernoulli(
+            probs=probs,
+            n_sample_packs_per_probability=n_sample_packs_per_probability,
+            bitpack_dtype=bitpack_dtype,
+            dtype=tf.float64,
+            seed=42
+        )
+
+        print("Packed Bits:")
+        print(tf.reduce_mean(tf.transpose(tally(packed_bits)), axis=0))
 
 if __name__ == "__main__":
-    SubGraphConstructionTests().test_concat_input_estimator_batched_basic_expr()
+    SubGraphConstructionTests().test_parametrized_seed_and_batch()
