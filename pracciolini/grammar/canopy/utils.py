@@ -1,3 +1,5 @@
+from typing import Optional, Tuple
+
 import tensorflow as tf
 import numpy as np
 import h5py
@@ -96,3 +98,140 @@ def create_dataset_from_hdf5(file_path, dataset_name='samples') -> tf.data.Datas
 
     #dataset = dataset.batch(batch_size)
     return dataset
+
+
+
+def _compute_bits_in_dtype(tensor_type: tf.DType) -> int:
+    """
+    Computes the number of bits in the given data type.
+
+    Args:
+        tensor_type (tf.DType): The tensor data type.
+
+    Returns:
+        int: Number of bits in the data type.
+    """
+    return tf.dtypes.as_dtype(tensor_type).size * 8
+
+def compute_optimal_sample_shape_for_constraints(
+    num_events: int,
+    max_bytes: Optional[int] = int(2 ** 32),
+    dtype: Optional[tf.DType] = tf.float32,
+    bitpack_dtype: Optional[tf.DType] = tf.uint8,
+    batch_size_range: Optional[Tuple[Optional[int], Optional[int]]] = (1, None),
+    sample_size_range: Optional[Tuple[Optional[int], Optional[int]]] = (int(2 ** 10), None),
+) -> Tuple[int, int, dict]:
+    """
+    Computes the optimal sample shape (batch_size, sample_size) within the given constraints.
+
+    Args:
+        num_events (int): Number of events/probabilities.
+        max_bytes (Optional[int], optional): Maximum allowed bytes for memory usage. Defaults to 4 GiB.
+        dtype (Optional[tf.DType], optional): Data type for sampling. Defaults to tf.float32.
+        bitpack_dtype (Optional[tf.DType], optional): Data type for bit-packing. Defaults to tf.uint8.
+        batch_size_range (Optional[Tuple[Optional[int], Optional[int]]], optional):
+            Minimum and maximum batch sizes. Defaults to (1, None).
+        sample_size_range (Optional[Tuple[Optional[int], Optional[int]]], optional):
+            Minimum and maximum sample sizes (n_sample_packs_per_probability). Defaults to (1024, None).
+
+    Returns:
+        Tuple[int, int]: Optimal (batch_size, sample_size) that fit within the constraints.
+
+    Raises:
+        ValueError: If constraints cannot be satisfied with given ranges.
+    """
+    # Compute bits per pack and size of dtype in bytes
+    bits_in_bitpack_dtype = _compute_bits_in_dtype(bitpack_dtype)  # Bits per pack
+    size_of_dtype_in_bytes = tf.dtypes.as_dtype(dtype).size        # Bytes per element
+
+    # Unpack batch size and sample size ranges
+    batch_size_min, batch_size_max = batch_size_range
+    sample_size_min, sample_size_max = sample_size_range
+
+    # Set defaults for None values
+    if batch_size_min is None:
+        batch_size_min = 1
+    if batch_size_max is None:
+        batch_size_max = int(2 ** 31 - 1)  # Max int32 value
+    if sample_size_min is None:
+        sample_size_min = 1
+    if sample_size_max is None:
+        sample_size_max = int(2 ** 31 - 1)
+
+    # Validate input ranges
+    if batch_size_min > batch_size_max:
+        raise ValueError("batch_size_min cannot be greater than batch_size_max")
+    if sample_size_min > sample_size_max:
+        raise ValueError("sample_size_min cannot be greater than sample_size_max")
+
+    num_events = int(num_events)
+    max_bytes = int(max_bytes)
+
+    # Initialize variables for optimal batch_size and sample_size
+    optimal_batch_size = batch_size_min
+    optimal_sample_size = sample_size_min
+
+    # Compute constants for memory calculation
+    bytes_per_sample = num_events * bits_in_bitpack_dtype * size_of_dtype_in_bytes * 2  # 2 for dist and samples tensors
+
+    # Function to compute memory usage
+    def compute_memory_usage(batch_size_, sample_size_):
+        return batch_size_ * sample_size_ * bytes_per_sample
+
+    # Function to check if parameters satisfy constraints
+    def is_within_constraints(batch_size_, sample_size_):
+        memory_usage = compute_memory_usage(batch_size_, sample_size_)
+        return memory_usage <= max_bytes
+
+    # Attempt to maximize sample_size first
+    # For the given batch_size_min, compute the maximal sample_size
+    max_possible_sample_size = (max_bytes) // (batch_size_min * bytes_per_sample)
+    max_possible_sample_size = min(max_possible_sample_size, sample_size_max)
+    max_possible_sample_size = max(max_possible_sample_size, sample_size_min)
+
+    if is_within_constraints(batch_size_min, max_possible_sample_size):
+        optimal_sample_size = max_possible_sample_size
+    else:
+        # If not possible with batch_size_min, try reducing sample_size
+        sample_size = max_possible_sample_size
+        while sample_size >= sample_size_min:
+            if is_within_constraints(batch_size_min, sample_size):
+                optimal_sample_size = sample_size
+                break
+            sample_size -= 1
+        else:
+            raise ValueError("Cannot satisfy constraints with given batch_size_min and sample_size_range")
+
+    # Now, try to increase batch_size as much as possible
+    max_possible_batch_size = (max_bytes) // (optimal_sample_size * bytes_per_sample)
+    max_possible_batch_size = min(max_possible_batch_size, batch_size_max)
+    max_possible_batch_size = max(max_possible_batch_size, batch_size_min)
+
+    if is_within_constraints(max_possible_batch_size, optimal_sample_size):
+        optimal_batch_size = max_possible_batch_size
+    else:
+        # If not possible with optimal_sample_size, adjust batch_size downwards
+        batch_size = max_possible_batch_size
+        while batch_size >= batch_size_min:
+            if is_within_constraints(batch_size, optimal_sample_size):
+                optimal_batch_size = batch_size
+                break
+            batch_size -= 1
+        else:
+            raise ValueError("Cannot satisfy constraints with given sample_size and batch_size_range")
+
+    # Final validation
+    total_memory_bytes = compute_memory_usage(optimal_batch_size, optimal_sample_size)
+    if total_memory_bytes > max_bytes:
+        raise ValueError("Cannot satisfy constraints with the given parameters")
+
+    return int(optimal_batch_size), int(optimal_sample_size), {
+        "total_memory_bytes": total_memory_bytes,
+        "optimal_batch_size": optimal_batch_size,
+        "optimal_sample_size": optimal_sample_size,
+        "bytes_per_sample": bytes_per_sample,
+        "max_possible_batch_size": max_possible_batch_size,
+        "max_possible_sample_size": max_possible_sample_size,
+        "bits_in_bitpack_dtype": bits_in_bitpack_dtype,
+        "size_of_dtype_in_bytes": size_of_dtype_in_bytes,
+    }
