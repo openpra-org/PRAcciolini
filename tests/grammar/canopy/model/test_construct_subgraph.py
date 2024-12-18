@@ -9,7 +9,7 @@ import tensorflow as tf
 
 from pracciolini.grammar.canopy.model.layers import BitpackedBernoulli, BitwiseOr, BitwiseXor, Expectation, BitwiseAnd, \
     BitwiseNot, BitwiseXnor, BitwiseNand, BitwiseNor
-from pracciolini.grammar.canopy.model.ops.monte_carlo import tally
+from pracciolini.grammar.canopy.model.ops.monte_carlo import tally, count_bits
 from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli, generate_bernoulli_no_bitpack
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
@@ -17,7 +17,9 @@ from pracciolini.grammar.canopy.model.subgraph import SubGraph
 import tensorflow as tf
 import numpy as np
 
-from pracciolini.grammar.canopy.utils import compute_optimal_sample_shape_for_constraints
+from pracciolini.grammar.canopy.probability import monte_carlo
+from pracciolini.grammar.canopy.utils import compute_optimal_sample_shape_for_constraints, \
+    tensor_as_formatted_bit_vectors
 
 
 def create_batched_streaming_dataset(probs, num_samples, dtype=tf.float32):
@@ -486,21 +488,31 @@ class SubGraphConstructionTests(unittest.TestCase):
             print((outputs.numpy()))
 
     def test_parametrized_seed_and_batch(self):
-        tf.profiler.experimental.start('../../../../logs')
+        #tf.profiler.experimental.start('../../../../logs')
         # tf.debugging.experimental.enable_dump_debug_info('../../../../logs', tensor_debug_mode="FULL_HEALTH",
         #                                                  circular_buffer_size=-1)
 
-        bitpack_dtype = tf.uint8
+        tf.config.run_functions_eagerly(False)
+
         sampler_dtype = tf.float32
-        total_samples = 256                       # Number of samples (i.e. total work done)
-        sample_size = 10                         # Number of samples to generate per event/probability
-        width = 2 ** 16                                     # Number of events/probabilities
+        bitpack_dtype = tf.uint8
+        num_events = 7
+        batch_size, sample_size, extras = compute_optimal_sample_shape_for_constraints(num_events=num_events,
+                                                                               max_bytes=int(2**28),
+                                                                               dtype=sampler_dtype,
+                                                                               batch_size_range=(256, None),
+                                                                               sample_size_range=(1,None),
+                                                                               bitpack_dtype=bitpack_dtype)
+        total_samples = batch_size * sample_size
+        total_samples_bit_packed = total_samples * tf.dtypes.as_dtype(bitpack_dtype).size * 8
 
         datastream_float_type = tf.float32
-        datastream_batch_size = 1                                # size of each batch (num_batches should be num_samples/batch_size)
+        datastream_batch_size = batch_size                                # size of each batch (num_batches should be num_samples/batch_size)
         datastream_num_batches = total_samples // datastream_batch_size    # Number of batches
 
-        probs = tf.constant([1.0 / (x + 1) for x in range(width)], dtype=datastream_float_type)
+        print(f"N = ({total_samples})[batch_size ({batch_size}) x datastream_num_batches ({datastream_num_batches})]")
+
+        probs = tf.constant([1.0 / (x + 1.0) for x in range(num_events)], dtype=datastream_float_type)
 
         # Create the dataset
         dataset = tf.data.Dataset.from_tensors(probs).repeat(total_samples)
@@ -508,7 +520,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         batched_dataset = batched_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
         # Define Keras inputs
-        probs_input = tf.keras.Input(shape=(width,), dtype=datastream_float_type)
+        probs_input = tf.keras.Input(shape=(num_events,), dtype=datastream_float_type)
 
         # Create the layers
         samples_layer = BitpackedBernoulli(sample_size=sample_size,
@@ -517,28 +529,19 @@ class SubGraphConstructionTests(unittest.TestCase):
 
         # Build and compile the Keras model
         model = tf.keras.Model(inputs=probs_input, outputs=samples_layer)
-        model.compile()
+        model.compile(run_eagerly=False,
+                      steps_per_execution=1,
+                      jit_compile=True,)
         model.summary()
 
-        # Get the TensorFlow session
-        session = tf.keras.src.backend.K.get_session()
-
-        # Freeze the graph
-        frozen_graph_def = tf.graph_util.convert_variables_to_constants(
-            session,
-            session.graph_def,
-            [node.op.name for node in model.outputs]
-        )
-
         # tb_callback = tf.keras.callbacks.TensorBoard(log_dir="../../../../logs", profile_batch='10, 15')
-
         # Run the model prediction on the current batch
         model.predict(
             x=batched_dataset,
             steps=datastream_num_batches, # Ensure you cover the entire dataset,
             # callbacks=[tb_callback]
         )
-        tf.profiler.experimental.stop()
+        #tf.profiler.experimental.stop()
 
         # Iterate over the dataset
       #  for batch_probs in batched_dataset:
@@ -569,6 +572,41 @@ class SubGraphConstructionTests(unittest.TestCase):
 
 
     def test_generate_bernoulli(self):
+
+        def batched_estimate(probs_: tf.Tensor,
+                             num_batches_: int,
+                             sample_size_: int,
+                             bitpack_dtype_: tf.DType,
+                             sampler_dtype_: tf.DType,
+                             acc_dtype_: tf.DType = tf.uint32):
+            batch_size_ = probs_.shape[0]
+            event_dim_size_ = sample_size_ * tf.dtypes.as_dtype(bitpack_dtype_).size * 8
+            event_bits_in_batch_ = tf.cast(batch_size_ * event_dim_size_, dtype=acc_dtype_)
+
+            cumulative_one_bits_ = tf.constant(0, dtype=acc_dtype_)
+            updated_expected_value_ = tf.constant(0, dtype=tf.float64)
+            losses_ = []
+
+            for batch_idx_ in range(num_batches_):
+                # Generate samples
+                packed_bits_ = generate_bernoulli(
+                    probs=probs_,
+                    n_sample_packs_per_probability=int(sample_size_),
+                    bitpack_dtype=bitpack_dtype_,
+                    dtype=sampler_dtype_,
+                )
+                one_bits_in_batch_ = tf.reduce_sum(input_tensor=tf.cast(x=tf.raw_ops.PopulationCount(x=packed_bits_), dtype=acc_dtype_), axis=-1)
+                cumulative_one_bits_ = cumulative_one_bits_ + one_bits_in_batch_
+                cumulative_bits_ = (tf.cast(batch_idx_, dtype=acc_dtype_) + 1) * event_bits_in_batch_
+                updated_expected_value_ = cumulative_one_bits_ / cumulative_bits_
+                updated_loss_ = tf.keras.losses.MSE(probs_, updated_expected_value_,)
+
+                # Compute MSE losses
+                losses_.append(updated_loss_.numpy())
+                print(f"Batch [{batch_idx_ + 1}] MSE loss: {updated_loss_.numpy()}, E[f(x)]: {updated_expected_value_.numpy()}")
+
+            return losses_, updated_expected_value_
+
         #tf.profiler.experimental.start('../../../../logs')
         #tf.compat.v1.disable_eager_execution()
         tf.config.run_functions_eagerly(False)
@@ -576,43 +614,59 @@ class SubGraphConstructionTests(unittest.TestCase):
         #sampler tensor_memory = 1, 1024, 8388608
         sampler_dtype = tf.float32
         bitpack_dtype = tf.uint8
-        num_events = 1
-        probs = tf.constant([[1.0 / (x + 1) for x in range(num_events)]], dtype=sampler_dtype)
+        num_events = 8
+        probs = tf.constant([
+            [1.0 / (x + 2.0) for x in range(num_events)],
+        ], dtype=sampler_dtype)
 
         batch_size, sample_size, extras = compute_optimal_sample_shape_for_constraints(num_events=num_events,
-                                                                               max_bytes=int(64*2),
+                                                                               max_bytes=int(1.5 * 2**32),
                                                                                dtype=sampler_dtype,
-                                                                               batch_size_range=(1,1),
+                                                                               batch_size_range=(2, None),
+                                                                               sample_size_range=(2, None),
                                                                                bitpack_dtype=bitpack_dtype)
         print(f"sample_size: {sample_size}, batch_size: {batch_size}")
         print(extras)
 
+        # Initialize cumulative statistics
+        total_batches = 5
+        losses, est_mean = batched_estimate(probs_=probs,
+                         num_batches_=total_batches,
+                         sample_size_=sample_size,
+                         bitpack_dtype_=bitpack_dtype,
+                         sampler_dtype_=sampler_dtype)
+
+
+        print(f"Losses: {losses}")
+        print(f"Known Probabilities: {probs.numpy()}")
+        print(f"Estimated Means    : {est_mean.numpy()}")
+        #
+        # import matplotlib.pyplot as plt
+        # # Plot the decreasing loss trends
+        # plt.figure(figsize=(10, 6))
+        # plt.plot(range(1, num_batches + 1), cumulative_losses, marker='o')
+        # plt.title('MSE Loss vs. Number of Batches Processed')
+        # plt.xlabel('Number of Batches')
+        # plt.ylabel('MSE Loss')
+        # plt.grid(True)
+        # plt.show()
+        return
         packed_bits = generate_bernoulli(
             probs=probs,
-            n_sample_packs_per_probability=sample_size,
+            n_sample_packs_per_probability=int(sample_size),
             bitpack_dtype=bitpack_dtype,
             dtype=sampler_dtype,
-            seed=42
         )
 
-        no_pack_bits = generate_bernoulli_no_bitpack(
-            probs=probs,
-            n_samples=sample_size * 8,
-            dtype=sampler_dtype,
-            seed=42
-        )
-
-        print("Eager execution:", timeit.timeit(lambda: packed_bits, number=10), "seconds")
-
-        print("Eager execution:", timeit.timeit(lambda: no_pack_bits, number=10), "seconds")
-        #dataset = tf.data.Dataset.from_tensors(packed_bits).repeat(16).take(1).
-        #batched_dataset = dataset.batch(2, num_parallel_calls=32)
-        #batched_dataset = batched_dataset.prefetch(tf.data.experimental.AUTOTUNE)
-
-        print("Packed Bits:")
-        #print(tf.reduce_mean(tf.transpose(tally(packed_bits)), axis=0))
-        #tf.profiler.experimental.stop()
+        samples_per_batch = sample_size * tf.dtypes.as_dtype(bitpack_dtype).size * 8
+        total_samples = batch_size * samples_per_batch
+        print(f"N = ({total_samples})[num_batches ({batch_size}) x samples_per_batch ({samples_per_batch})]")
+        lower_limit, expected_value, upper_limit = tally(packed_bits)
+        losses = tf.keras.losses.MSE(probs, expected_value)
+        print(f"MSE losses: {losses}")
 
 if __name__ == "__main__":
-    SubGraphConstructionTests().test_parametrized_seed_and_batch()
-    #SubGraphConstructionTests().test_generate_bernoulli()
+    #SubGraphConstructionTests().test_parametrized_seed_and_batch()
+    SubGraphConstructionTests().test_generate_bernoulli()
+
+
