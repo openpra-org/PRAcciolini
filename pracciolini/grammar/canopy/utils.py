@@ -135,14 +135,20 @@ def compute_optimal_sample_shape_for_constraints(
             Minimum and maximum sample sizes (n_sample_packs_per_probability). Defaults to (1024, None).
 
     Returns:
-        Tuple[int, int]: Optimal (batch_size, sample_size) that fit within the constraints.
+        Tuple[int, int, dict]: Optimal (batch_size, sample_size) that fit within the constraints,
+                               and a dictionary of internal variables for debugging.
 
     Raises:
         ValueError: If constraints cannot be satisfied with given ranges.
     """
+    debug_info = {}  # Dictionary to hold all internal variables
+
     # Compute bits per pack and size of dtype in bytes
     bits_in_bitpack_dtype = _compute_bits_in_dtype(bitpack_dtype)  # Bits per pack
     size_of_dtype_in_bytes = tf.dtypes.as_dtype(dtype).size        # Bytes per element
+
+    debug_info['bits_in_bitpack_dtype'] = bits_in_bitpack_dtype
+    debug_info['size_of_dtype_in_bytes'] = size_of_dtype_in_bytes
 
     # Unpack batch size and sample size ranges
     batch_size_min, batch_size_max = batch_size_range
@@ -158,25 +164,37 @@ def compute_optimal_sample_shape_for_constraints(
     if sample_size_max is None:
         sample_size_max = int(2 ** 31 - 1)
 
+    debug_info['batch_size_min'] = batch_size_min
+    debug_info['batch_size_max'] = batch_size_max
+    debug_info['sample_size_min'] = sample_size_min
+    debug_info['sample_size_max'] = sample_size_max
+
     # Validate input ranges
     if batch_size_min > batch_size_max:
-        raise ValueError("batch_size_min cannot be greater than batch_size_max")
+        debug_info['error'] = "batch_size_min cannot be greater than batch_size_max"
+        raise ValueError(f"{debug_info}")
     if sample_size_min > sample_size_max:
-        raise ValueError("sample_size_min cannot be greater than sample_size_max")
+        debug_info['error'] = "sample_size_min cannot be greater than sample_size_max"
+        raise ValueError(f"{debug_info}")
 
     num_events = int(num_events)
     max_bytes = int(max_bytes)
 
-    # Initialize variables for optimal batch_size and sample_size
-    optimal_batch_size = batch_size_min
-    optimal_sample_size = sample_size_min
+    debug_info['num_events'] = num_events
+    debug_info['max_bytes'] = max_bytes
 
     # Compute constants for memory calculation
     bytes_per_sample = num_events * bits_in_bitpack_dtype * size_of_dtype_in_bytes * 2  # 2 for dist and samples tensors
 
+    debug_info['bytes_per_sample'] = bytes_per_sample
+
     # Function to compute memory usage
     def compute_memory_usage(batch_size_, sample_size_):
-        return batch_size_ * sample_size_ * bytes_per_sample
+        memory_usage = batch_size_ * sample_size_ * bytes_per_sample
+        debug_info['current_memory_usage'] = memory_usage
+        debug_info['current_batch_size'] = batch_size_
+        debug_info['current_sample_size'] = sample_size_
+        return memory_usage
 
     # Function to check if parameters satisfy constraints
     def is_within_constraints(batch_size_, sample_size_):
@@ -185,14 +203,21 @@ def compute_optimal_sample_shape_for_constraints(
 
     # Attempt to maximize sample_size first
     # For the given batch_size_min, compute the maximal sample_size
-    max_possible_sample_size = (max_bytes) // (batch_size_min * bytes_per_sample)
+    max_possible_sample_size = max_bytes // (batch_size_min * bytes_per_sample)
     max_possible_sample_size = min(max_possible_sample_size, sample_size_max)
-    max_possible_sample_size = max(max_possible_sample_size, sample_size_min)
 
+    debug_info['max_possible_sample_size_initial'] = max_possible_sample_size
+
+    # Check if max_possible_sample_size is within sample_size_range
+    if max_possible_sample_size < sample_size_min:
+        debug_info['error'] = "Cannot satisfy constraints with given batch_size_min and sample_size_range"
+        raise ValueError(f"{debug_info}")
+
+    # Try to find the optimal sample size within constraints
     if is_within_constraints(batch_size_min, max_possible_sample_size):
         optimal_sample_size = max_possible_sample_size
     else:
-        # If not possible with batch_size_min, try reducing sample_size
+        # Reduce sample_size
         sample_size = max_possible_sample_size
         while sample_size >= sample_size_min:
             if is_within_constraints(batch_size_min, sample_size):
@@ -200,17 +225,27 @@ def compute_optimal_sample_shape_for_constraints(
                 break
             sample_size -= 1
         else:
-            raise ValueError("Cannot satisfy constraints with given batch_size_min and sample_size_range")
+            debug_info['error'] = "Cannot satisfy constraints with given batch_size_min and sample_size_range"
+            raise ValueError(f"{debug_info}")
+
+    debug_info['optimal_sample_size'] = optimal_sample_size
 
     # Now, try to increase batch_size as much as possible
-    max_possible_batch_size = (max_bytes) // (optimal_sample_size * bytes_per_sample)
+    max_possible_batch_size = max_bytes // (optimal_sample_size * bytes_per_sample)
     max_possible_batch_size = min(max_possible_batch_size, batch_size_max)
-    max_possible_batch_size = max(max_possible_batch_size, batch_size_min)
 
+    debug_info['max_possible_batch_size_initial'] = max_possible_batch_size
+
+    # Check if max_possible_batch_size is within batch_size_range
+    if max_possible_batch_size < batch_size_min:
+        debug_info['error'] = "Cannot satisfy constraints with given sample_size and batch_size_range"
+        raise ValueError(f"{debug_info}")
+
+    # Try to find the optimal batch size within constraints
     if is_within_constraints(max_possible_batch_size, optimal_sample_size):
         optimal_batch_size = max_possible_batch_size
     else:
-        # If not possible with optimal_sample_size, adjust batch_size downwards
+        # Reduce batch_size
         batch_size = max_possible_batch_size
         while batch_size >= batch_size_min:
             if is_within_constraints(batch_size, optimal_sample_size):
@@ -218,20 +253,17 @@ def compute_optimal_sample_shape_for_constraints(
                 break
             batch_size -= 1
         else:
-            raise ValueError("Cannot satisfy constraints with given sample_size and batch_size_range")
+            debug_info['error'] = "Cannot satisfy constraints with given sample_size and batch_size_range"
+            raise ValueError(f"{debug_info}")
+
+    debug_info['optimal_batch_size'] = optimal_batch_size
 
     # Final validation
     total_memory_bytes = compute_memory_usage(optimal_batch_size, optimal_sample_size)
-    if total_memory_bytes > max_bytes:
-        raise ValueError("Cannot satisfy constraints with the given parameters")
+    debug_info['total_memory_bytes'] = total_memory_bytes
 
-    return int(optimal_batch_size), int(optimal_sample_size), {
-        "total_memory_bytes": total_memory_bytes,
-        "optimal_batch_size": optimal_batch_size,
-        "optimal_sample_size": optimal_sample_size,
-        "bytes_per_sample": bytes_per_sample,
-        "max_possible_batch_size": max_possible_batch_size,
-        "max_possible_sample_size": max_possible_sample_size,
-        "bits_in_bitpack_dtype": bits_in_bitpack_dtype,
-        "size_of_dtype_in_bytes": size_of_dtype_in_bytes,
-    }
+    if total_memory_bytes > max_bytes:
+        debug_info['error'] = "Cannot satisfy constraints with the given parameters"
+        raise ValueError(f"{debug_info}")
+
+    return int(optimal_batch_size), int(optimal_sample_size), debug_info
