@@ -97,3 +97,20 @@ def expectation_with_confidence_interval(x: tf.Tensor, dtype=tf.float64) -> Tupl
 @tf.function
 def variational_loss(x: tf.Tensor):
     raise NotImplementedError("variational_loss implementation pending")
+
+@tf.function
+def mse_loss(y_true: tf.Tensor, y_pred: tf.Tensor, dtype: tf.DType = tf.float64) -> tf.Tensor:
+    """
+    Custom Mean Squared Error loss function that operates in float64 precision.
+
+    Args:
+        y_true (tf.Tensor): Ground truth values. Shape: [batch_size, n_events], dtype can be any type.
+        y_pred (tf.Tensor): Predicted values. Shape: [batch_size, n_events], dtype can be any type.
+        dtype (tf.DType): dtype can be any float type, defaults to tf.float64
+    Returns:
+        tf.Tensor: Scalar loss value. defaults to tf.float64
+    """
+    y_true = tf.cast(y_true, dtype=dtype)
+    y_pred = tf.cast(y_pred, dtype=dtype)
+    loss = tf.reduce_mean(tf.square(y_pred - y_true))
+    return loss
