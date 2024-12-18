@@ -116,19 +116,20 @@ class BitwiseXnor(Layer):
         return bitwise_xnor(inputs)
 
 class BitpackedBernoulli(Layer):
-    def __init__(self, **kwargs):
+    def __init__(self, sample_size, bitpack_dtype=tf.uint8, dtype=tf.float32, **kwargs):
         super(BitpackedBernoulli, self).__init__(**kwargs)
+        self._sample_size = sample_size
+        self._bitpack_dtype = bitpack_dtype
+        self._dtype = dtype
 
     def __call__(self, *args, **kwargs):
         return super(BitpackedBernoulli, self).__call__(*args, **kwargs)
 
     def call(self, inputs):
-        probs_batch, count_batch = inputs  # probs_batch: [batch_size, num_events], count_batch: [batch_size]
-        n_sample_packs_per_probability = count_batch[0]  # Assuming same count for all samples
         return generate_bernoulli(
-            probs=probs_batch,
-            n_sample_packs_per_probability=n_sample_packs_per_probability,
-            bitpack_dtype=tf.uint8,
-            dtype=tf.float32,
+            probs=inputs,
+            n_sample_packs_per_probability=self._sample_size,
+            bitpack_dtype=self._bitpack_dtype,
+            dtype=self._dtype,
             seed=None
         )

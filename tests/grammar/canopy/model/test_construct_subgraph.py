@@ -1,3 +1,4 @@
+import timeit
 import unittest
 
 from keras.src.layers import InputLayer
@@ -9,9 +10,43 @@ import tensorflow as tf
 from pracciolini.grammar.canopy.model.layers import BitpackedBernoulli, BitwiseOr, BitwiseXor, Expectation, BitwiseAnd, \
     BitwiseNot, BitwiseXnor, BitwiseNand, BitwiseNor
 from pracciolini.grammar.canopy.model.ops.monte_carlo import tally
-from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
+from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli, generate_bernoulli_no_bitpack
 from pracciolini.grammar.canopy.model.tensor import Tensor
 from pracciolini.grammar.canopy.model.subgraph import SubGraph
+
+import tensorflow as tf
+import numpy as np
+
+from pracciolini.grammar.canopy.utils import compute_optimal_sample_shape_for_constraints
+
+
+def create_batched_streaming_dataset(probs, num_samples, dtype=tf.float32):
+    # Create a dataset that generates individual samples
+    def generator():
+        for _ in range(num_samples):
+            yield probs
+
+    dataset = tf.data.Dataset.from_generator(
+        generator,
+        output_signature=tf.TensorSpec(shape=(len(probs),), dtype=dtype)
+    )
+    return dataset
+
+def create_streaming_dataset(probs, num_batches, batch_size, dtype=tf.float32):
+    # Create a dataset that generates batches of probabilities and counts
+    def generator():
+        for _ in range(num_batches):
+            yield (
+                np.tile(probs, (batch_size, 1)),
+            )
+
+    dataset = tf.data.Dataset.from_generator(
+        generator,
+        output_signature=(
+            tf.TensorSpec(shape=(batch_size, len(probs)), dtype=dtype),
+        )
+    )
+    return dataset
 
 
 class SubGraphConstructionTests(unittest.TestCase):
@@ -451,17 +486,65 @@ class SubGraphConstructionTests(unittest.TestCase):
             print((outputs.numpy()))
 
     def test_parametrized_seed_and_batch(self):
-        float_type = tf.float32
-        num_samples = 2 ** 20                     # Number of samples (i.e. total work done)
-        batch_size = 2048                          # size of each batch (num_batches should be num_samples/batch_size)
-        n_sample_packs_per_probability = 2 ** 4  # Number of samples to generate per event/probability
-        width = 1024                               # Number of events/probabilities
-        probabilities = [1.0 / (x + 1) for x in range(width)]
+        tf.profiler.experimental.start('../../../../logs')
+        # tf.debugging.experimental.enable_dump_debug_info('../../../../logs', tensor_debug_mode="FULL_HEALTH",
+        #                                                  circular_buffer_size=-1)
 
-        # Create input data with multiple samples
-        probs_array = np.array([probabilities for _ in range(num_samples)], dtype=np.float32)  # Shape: [batch_size, width]
-        n_sample_packs_array = np.array([n_sample_packs_per_probability for _ in range(num_samples)], dtype=np.int32)  # Shape: [batch_size]
+        bitpack_dtype = tf.uint8
+        sampler_dtype = tf.float32
+        total_samples = 256                       # Number of samples (i.e. total work done)
+        sample_size = 10                         # Number of samples to generate per event/probability
+        width = 2 ** 16                                     # Number of events/probabilities
 
+        datastream_float_type = tf.float32
+        datastream_batch_size = 1                                # size of each batch (num_batches should be num_samples/batch_size)
+        datastream_num_batches = total_samples // datastream_batch_size    # Number of batches
+
+        probs = tf.constant([1.0 / (x + 1) for x in range(width)], dtype=datastream_float_type)
+
+        # Create the dataset
+        dataset = tf.data.Dataset.from_tensors(probs).repeat(total_samples)
+        batched_dataset = dataset.batch(datastream_batch_size, num_parallel_calls=32)
+        batched_dataset = batched_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+
+        # Define Keras inputs
+        probs_input = tf.keras.Input(shape=(width,), dtype=datastream_float_type)
+
+        # Create the layers
+        samples_layer = BitpackedBernoulli(sample_size=sample_size,
+                                           bitpack_dtype=bitpack_dtype,
+                                           dtype=sampler_dtype)(probs_input)
+
+        # Build and compile the Keras model
+        model = tf.keras.Model(inputs=probs_input, outputs=samples_layer)
+        model.compile()
+        model.summary()
+
+        # Get the TensorFlow session
+        session = tf.keras.src.backend.K.get_session()
+
+        # Freeze the graph
+        frozen_graph_def = tf.graph_util.convert_variables_to_constants(
+            session,
+            session.graph_def,
+            [node.op.name for node in model.outputs]
+        )
+
+        # tb_callback = tf.keras.callbacks.TensorBoard(log_dir="../../../../logs", profile_batch='10, 15')
+
+        # Run the model prediction on the current batch
+        model.predict(
+            x=batched_dataset,
+            steps=datastream_num_batches, # Ensure you cover the entire dataset,
+            # callbacks=[tb_callback]
+        )
+        tf.profiler.experimental.stop()
+
+        # Iterate over the dataset
+      #  for batch_probs in batched_dataset:
+
+
+        return
         # Define Keras inputs
         probs_input = tf.keras.Input(shape=(width,), dtype=float_type)
         n_sample_packs_input = tf.keras.Input(shape=(), dtype=tf.int32)
@@ -474,30 +557,62 @@ class SubGraphConstructionTests(unittest.TestCase):
         model.compile()
         model.summary()
 
+        # Profile from batches 10 to 15
+        tb_callback = tf.keras.callbacks.TensorBoard(log_dir="../../../../logs")
         # Run the model prediction
         model.predict(
             x=[probs_array, n_sample_packs_array],
+            callbacks=[tb_callback],
             batch_size=batch_size  # Controls how many samples are processed at once
         )
         #print(f"Outputs:\n{outputs}\n")
 
+
     def test_generate_bernoulli(self):
-        batch_size = 2
-        num_events = 3
-        n_sample_packs_per_probability = 2 ** 24  # Number of sample packs per probability
-        probs = tf.constant([[0.2, 0.5328, 0.8, 0.999999]], dtype=tf.float64)
+        #tf.profiler.experimental.start('../../../../logs')
+        #tf.compat.v1.disable_eager_execution()
+        tf.config.run_functions_eagerly(False)
+
+        #sampler tensor_memory = 1, 1024, 8388608
+        sampler_dtype = tf.float32
         bitpack_dtype = tf.uint8
+        num_events = 1
+        probs = tf.constant([[1.0 / (x + 1) for x in range(num_events)]], dtype=sampler_dtype)
+
+        batch_size, sample_size, extras = compute_optimal_sample_shape_for_constraints(num_events=num_events,
+                                                                               max_bytes=int(64*2),
+                                                                               dtype=sampler_dtype,
+                                                                               batch_size_range=(1,1),
+                                                                               bitpack_dtype=bitpack_dtype)
+        print(f"sample_size: {sample_size}, batch_size: {batch_size}")
+        print(extras)
 
         packed_bits = generate_bernoulli(
             probs=probs,
-            n_sample_packs_per_probability=n_sample_packs_per_probability,
+            n_sample_packs_per_probability=sample_size,
             bitpack_dtype=bitpack_dtype,
-            dtype=tf.float64,
+            dtype=sampler_dtype,
             seed=42
         )
 
+        no_pack_bits = generate_bernoulli_no_bitpack(
+            probs=probs,
+            n_samples=sample_size * 8,
+            dtype=sampler_dtype,
+            seed=42
+        )
+
+        print("Eager execution:", timeit.timeit(lambda: packed_bits, number=10), "seconds")
+
+        print("Eager execution:", timeit.timeit(lambda: no_pack_bits, number=10), "seconds")
+        #dataset = tf.data.Dataset.from_tensors(packed_bits).repeat(16).take(1).
+        #batched_dataset = dataset.batch(2, num_parallel_calls=32)
+        #batched_dataset = batched_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+
         print("Packed Bits:")
-        print(tf.reduce_mean(tf.transpose(tally(packed_bits)), axis=0))
+        #print(tf.reduce_mean(tf.transpose(tally(packed_bits)), axis=0))
+        #tf.profiler.experimental.stop()
 
 if __name__ == "__main__":
     SubGraphConstructionTests().test_parametrized_seed_and_batch()
+    #SubGraphConstructionTests().test_generate_bernoulli()

@@ -67,12 +67,11 @@ def generate_bernoulli(
     # Prepare probabilities to match the shape of 'dist'
     probs_cast = tf.cast(probs, dtype=dtype)
     probs_expanded = tf.expand_dims(probs_cast, axis=-1)  # Shape: [batch_size, num_events, 1]
-    probs_tiled = tf.tile(probs_expanded, [1, 1, num_bits])  # Shape: [batch_size, num_events, num_bits]
 
     # Generate uniform random values
     dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype, seed=seed)
     # Generate Bernoulli samples
-    samples = tf.cast(dist < probs_tiled, dtype=bitpack_dtype)  # Shape: [batch_size, num_events, num_bits]
+    samples = tf.cast(dist < probs_expanded, dtype=bitpack_dtype)  # Shape: [batch_size, num_events, num_bits]
     # Reshape samples to prepare for bit-packing
     samples_reshaped = tf.reshape(samples, samples_bitpack_reshape) # Shape: [batch_size, num_events, n_sample_packs_per_probability, num_bits_per_pack]
 
@@ -85,3 +84,39 @@ def generate_bernoulli(
 
     # Return the packed bits
     return packed_bits  # Output tensor with shape [batch_size, num_events, n_sample_packs_per_probability]
+
+@tf.function
+def generate_bernoulli_no_bitpack(
+    probs: tf.Tensor,
+    n_samples: tf.int32,
+    dtype: tf.DType = tf.float32,
+    seed: int = None,
+) -> tf.Tensor:
+    """
+    Generates Bernoulli random variables based on input probabilities.
+
+    Args:
+        probs (tf.Tensor): Tensor of probabilities with shape [batch_size, num_events].
+        n_samples (int): Number of samples to generate per probability.
+        dtype (tf.DType, optional): Data type for sampling. Defaults to tf.float32.
+        seed (int, optional): Random seed. Defaults to None.
+
+    Returns:
+        tf.Tensor: Tensor of Bernoulli samples with shape [batch_size, num_events, n_samples].
+    """
+
+    batch_size = tf.shape(probs)[0]
+    num_events = tf.shape(probs)[1]
+    sample_shape = [batch_size, num_events, n_samples]
+
+    # Prepare probabilities for broadcasting
+    probs_cast = tf.cast(probs, dtype=dtype)
+    probs_expanded = tf.expand_dims(probs_cast, axis=-1)  # Shape: [batch_size, num_events, 1]
+
+    # Generate uniform random values
+    dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype, seed=seed)
+
+    # Generate Bernoulli samples using broadcasting
+    samples = tf.cast(dist < probs_expanded, dtype=tf.uint8)  # Shape: [batch_size, num_events, n_samples]
+
+    return samples  # Each sample is 0 or 1, stored as int8
