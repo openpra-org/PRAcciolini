@@ -1,5 +1,5 @@
 from typing import Optional, Tuple
-
+from ortools.sat.python import cp_model
 import tensorflow as tf
 import numpy as np
 import h5py
@@ -267,3 +267,173 @@ def compute_optimal_sample_shape_for_constraints(
         raise ValueError(f"{debug_info}")
 
     return int(optimal_batch_size), int(optimal_sample_size), debug_info
+
+
+
+def compute_bits_in_dtype(dtype_name: str) -> int:
+    """
+    Computes the number of bits in the given data type.
+
+    Args:
+        dtype_name (str): The name of the data type (e.g., 'float32', 'uint8').
+
+    Returns:
+        int: Number of bits in the data type.
+    """
+    dtype_bits = {
+        'float32': 32,
+        'float64': 64,
+        'int32': 32,
+        'int64': 64,
+        'uint8': 8,
+        'uint16': 16,
+        'uint32': 32,
+        'uint64': 64,
+    }
+    return dtype_bits[dtype_name]
+
+def optimize_batch_and_sample_size(
+    num_events: int,
+    max_bytes: int,
+    dtype_name: str = 'float32',
+    bitpack_dtype_name: str = 'uint8',
+    batch_size_range: (int, int) = (1, None),
+    sample_size_range: (int, int) = (1, None),
+    total_batches_range: (int, int) = (1, None)
+):
+    """
+    Optimizes the batch_size and sample_size to maximize processing efficiency
+    under memory constraints using or-tools.
+
+    Args:
+        num_events (int): Total number of events/probabilities.
+        max_bytes (int): Maximum allowed bytes for memory usage per batch.
+        dtype_name (str): Data type for sampling (e.g., 'float32').
+        bitpack_dtype_name (str): Data type for bit-packing (e.g., 'uint8').
+        batch_size_range (tuple): (batch_size_min, batch_size_max).
+        sample_size_range (tuple): (sample_size_min, sample_size_max).
+        total_batches_range (tuple): (total_batches_min, total_batches_max).
+
+    Returns:
+        dict: A dictionary containing the optimal values and related computations.
+    """
+    # Create the model
+    model = cp_model.CpModel()
+
+    # Data type sizes
+    size_of_dtype_in_bytes = compute_bits_in_dtype(dtype_name) // 8
+    bits_in_bitpack_dtype = compute_bits_in_dtype(bitpack_dtype_name)
+
+    # Variable bounds
+    batch_size_min = batch_size_range[0]
+    batch_size_max = batch_size_range[1] if batch_size_range[1] is not None else 2 ** 31 - 1
+    sample_size_min = sample_size_range[0]
+    sample_size_max = sample_size_range[1] if sample_size_range[1] is not None else 2 ** 31 - 1
+    total_batches_min = total_batches_range[0]
+    total_batches_max = total_batches_range[1] if total_batches_range[1] is not None else 2 ** 31 - 1
+
+    # Define variables
+    batch_size = model.NewIntVar(batch_size_min, batch_size_max, 'batch_size')
+    sample_size = model.NewIntVar(sample_size_min, sample_size_max, 'sample_size')
+    total_batches = model.NewIntVar(total_batches_min, total_batches_max, 'total_batches')
+
+    # Memory usage per batch
+    # memory_usage_per_batch = batch_size * num_events * (size_of_dtype_in_bytes + sample_size)
+    memory_usage_per_batch = model.NewIntVar(0, max_bytes, 'memory_usage_per_batch')
+    per_event_memory = size_of_dtype_in_bytes + sample_size
+    model.Add(memory_usage_per_batch == batch_size * num_events * per_event_memory)
+
+    # Memory constraint
+    model.Add(memory_usage_per_batch <= max_bytes)
+
+    # Bits per event per sample
+    bits_per_event_per_sample = model.NewIntVar(0, bits_in_bitpack_dtype * sample_size_max, 'bits_per_event_per_sample')
+    model.Add(bits_per_event_per_sample == sample_size * bits_in_bitpack_dtype)
+
+    # Bits per event per batch
+    bits_per_event_per_batch = model.NewIntVar(0, bits_per_event_per_sample.UpperBound() * batch_size_max, 'bits_per_event_per_batch')
+    model.AddMultiplicationEquality(bits_per_event_per_batch, [bits_per_event_per_sample, batch_size])
+
+    # Bits per event cumulative
+    bits_per_event_cumulative = model.NewIntVar(0, bits_per_event_per_batch.UpperBound() * total_batches_max, 'bits_per_event_cumulative')
+    model.AddMultiplicationEquality(bits_per_event_cumulative, [bits_per_event_per_batch, total_batches])
+
+    # Objective: Maximize bits_per_event_cumulative (or batch_size * sample_size)
+    # For simplicity, we'll maximize the product of batch_size and sample_size
+    # as bits_per_event_cumulative is dependent on total_batches
+    objective_var = model.NewIntVar(0, batch_size_max * sample_size_max, 'objective_var')
+    model.AddMultiplicationEquality(objective_var, [batch_size, sample_size])
+
+    model.Maximize(objective_var)
+
+    # Create the solver and solve
+    solver = cp_model.CpSolver()
+    status = solver.Solve(model)
+
+    # Prepare the result
+    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+        optimal_batch_size = solver.Value(batch_size)
+        optimal_sample_size = solver.Value(sample_size)
+        optimal_total_batches = solver.Value(total_batches)
+        optimal_memory_usage = solver.Value(memory_usage_per_batch)
+        optimal_bits_per_event_per_sample = solver.Value(bits_per_event_per_sample)
+        optimal_bits_per_event_per_batch = solver.Value(bits_per_event_per_batch)
+        optimal_bits_per_event_cumulative = solver.Value(bits_per_event_cumulative)
+        optimal_bits_cumulative = optimal_bits_per_event_cumulative * num_events
+
+        result = {
+            'num_events': num_events,
+            'sample_size': optimal_sample_size,
+            'batch_size': optimal_batch_size,
+            'total_batches': optimal_total_batches,
+            'memory_usage_per_batch': optimal_memory_usage,
+            'bits_per_event_per_sample': optimal_bits_per_event_per_sample,
+            'bits_per_event_per_batch': optimal_bits_per_event_per_batch,
+            'bits_per_event_cumulative': optimal_bits_per_event_cumulative,
+            'bits_cumulative': optimal_bits_cumulative,
+            'status': solver.StatusName(status),
+        }
+        return result
+    else:
+        print('No feasible solution found.')
+        return None
+
+def main():
+    # Define constants/parameters
+    num_events = 2 ** 26  # Example: 67,108,864 events
+    max_bytes = int(1.5 * 2 ** 32)  # 1.5 times 4 GiB
+    dtype_name = 'float32'
+    bitpack_dtype_name = 'uint8'
+    batch_size_range = (2, None)  # Minimum batch size is 2
+    sample_size_range = (2, 2)    # Fixed sample size at 2
+    total_batches = 16  # Total batches we want to process
+
+    # Run optimization
+    result = optimize_batch_and_sample_size(
+        num_events=num_events,
+        max_bytes=max_bytes,
+        dtype_name=dtype_name,
+        bitpack_dtype_name=bitpack_dtype_name,
+        batch_size_range=batch_size_range,
+        sample_size_range=sample_size_range,
+        total_batches_range=(total_batches, total_batches)
+    )
+
+    if result:
+        # Output the results
+        print(f"num_events               : {result['num_events']}")
+        print(f"sample_size              : {result['sample_size']}")
+        print(f"num_batches              : {result['total_batches']}")
+        print(f"batch_size               : {result['batch_size']}")
+        print(f"memory_usage_per_batch   : {result['memory_usage_per_batch']} bytes")
+        print(f"bits_per_event_per_sample: {result['bits_per_event_per_sample']}")
+        print(f"bits_per_event_per_batch : {result['bits_per_event_per_batch']}")
+        print(f"bits_per_batch           : {result['bits_per_event_per_batch'] * num_events}")
+        print(f"bits_per_event_cumulative: {result['bits_per_event_cumulative']}")
+        print(f"bits_cumulative          : {result['bits_cumulative']}")
+        print(f"Solver Status            : {result['status']}")
+    else:
+        print("Optimization failed. No feasible solution found.")
+
+if __name__ == '__main__':
+    main()
