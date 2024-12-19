@@ -40,7 +40,7 @@ class BitwiseNot(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseNot, self).__call__(*args, **kwargs)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_not(inputs)
 
@@ -52,6 +52,7 @@ class BitwiseAnd(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseAnd, self).__call__(*args, **kwargs)
 
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_nary_op(tf.bitwise.bitwise_and, inputs)
 
@@ -63,7 +64,7 @@ class BitwiseOr(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseOr, self).__call__(*args, **kwargs)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_or(inputs)
 
@@ -75,7 +76,7 @@ class BitwiseXor(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseXor, self).__call__(*args, **kwargs)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_xor(inputs)
 
@@ -87,7 +88,7 @@ class BitwiseNand(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseNand, self).__call__(*args, **kwargs)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_nand(inputs)
 
@@ -99,7 +100,7 @@ class BitwiseNor(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseNor, self).__call__(*args, **kwargs)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_nor(inputs)
 
@@ -111,7 +112,7 @@ class BitwiseXnor(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitwiseXnor, self).__call__(*args, **kwargs)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return bitwise_xnor(inputs)
 
@@ -125,6 +126,7 @@ class BitpackedBernoulli(Layer):
     def __call__(self, *args, **kwargs):
         return super(BitpackedBernoulli, self).__call__(*args, **kwargs)
 
+    @tf.function(jit_compile=True)
     def call(self, inputs):
         return generate_bernoulli(
             probs=inputs,

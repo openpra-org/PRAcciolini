@@ -27,17 +27,33 @@ class BatchSampleSizeOptimizer(tf.Module):
         self.bits_in_bitpack_dtype = compute_bits_in_dtype(bitpack_dtype)
 
         # Variable bounds
-        self.sampled_bits_per_event_min = self.bits_in_bitpack_dtype if sampled_bits_per_event_range[0] is None else sampled_bits_per_event_range[0]
-        self.sampled_bits_per_event_max = 2**31 - 1 if sampled_bits_per_event_range[1] is None else sampled_bits_per_event_range[1]
+        self.sampled_bits_per_event_min = (
+            self.bits_in_bitpack_dtype if sampled_bits_per_event_range[0] is None else sampled_bits_per_event_range[0]
+        )
+        self.sampled_bits_per_event_max = (
+            2**31 - 1 if sampled_bits_per_event_range[1] is None else sampled_bits_per_event_range[1]
+        )
 
         self.batch_size_min = batch_size_range[0]
-        self.batch_size_max = batch_size_range[1] if batch_size_range[1] is not None else self.sampled_bits_per_event_max // self.bits_in_bitpack_dtype
+        self.batch_size_max = (
+            batch_size_range[1]
+            if batch_size_range[1] is not None
+            else self.sampled_bits_per_event_max // self.bits_in_bitpack_dtype
+        )
 
         self.sample_size_min = sample_size_range[0]
-        self.sample_size_max = sample_size_range[1] if sample_size_range[1] is not None else self.sampled_bits_per_event_max // self.bits_in_bitpack_dtype
+        self.sample_size_max = (
+            sample_size_range[1]
+            if sample_size_range[1] is not None
+            else self.sampled_bits_per_event_max // self.bits_in_bitpack_dtype
+        )
 
         self.total_batches_min = total_batches_range[0]
-        self.total_batches_max = total_batches_range[1] if total_batches_range[1] is not None else self.sampled_bits_per_event_max // self.bits_in_bitpack_dtype
+        self.total_batches_max = (
+            total_batches_range[1]
+            if total_batches_range[1] is not None
+            else self.sampled_bits_per_event_max // self.bits_in_bitpack_dtype
+        )
 
         # Initialize variables
         self.num_events = tf.constant(num_events, dtype=tf.float32)
@@ -66,11 +82,11 @@ class BatchSampleSizeOptimizer(tf.Module):
         self.max_iterations = tf.constant(max_iterations)
         self.tolerance = tf.constant(tolerance)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def bounds_penalty(self, x_min_, x_, x_max_):
         return tf.square(tf.nn.relu(x_min_ - x_)) + tf.square(tf.nn.relu(x_ - x_max_))
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def compute_forward_pass(self, total_batches_, batch_size_, sample_size_, num_events_, bits_in_bitpack_dtype_, bits_in_sampler_dtype_):
         # Memory utilization related stats
         num_float_samples_in_batch_ = batch_size_ * num_events_ * sample_size_ * bits_in_bitpack_dtype_
@@ -83,7 +99,7 @@ class BatchSampleSizeOptimizer(tf.Module):
                 num_float_samples_in_batch_, sampler_allocated_bits_in_batch_,
                 bitpack_allocated_bits_in_batch_)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def optimize(self):
         for _ in tf.range(self.max_iterations):
             with tf.GradientTape() as tape:
@@ -137,12 +153,12 @@ class BatchSampleSizeOptimizer(tf.Module):
         # Prepare result (conversion outside tf.function scope)
         result = {
             'num_events': tf.cast(tf.round(self.num_events), dtype=tf.uint32),
-            'batch_size': tf.cast(tf.round(batch_size_final), dtype=tf.int32),
-            'sample_size': tf.cast(tf.round(sample_size_final), dtype=tf.int32),
-            'total_batches': tf.cast(tf.round(total_batches_final), dtype=tf.int32),
+            'batch_size': tf.cast(batch_size_final, dtype=tf.int32),
+            'sample_size': tf.cast(sample_size_final, dtype=tf.int32),
+            'total_batches': tf.cast(total_batches_final, dtype=tf.int32),
             'total_sampled_bits_per_event': tf.cast(tf.round(total_sampled_bits_per_event__), dtype=tf.uint64),
-            'bitpack_allocated_bits_in_batch': tf.cast(tf.round(bitpack_allocated_bits_in_batch__), dtype=tf.uint32),
-            'sampler_allocated_bits_in_batch': tf.cast(tf.round(sampler_allocated_bits_in_batch__), dtype=tf.uint32),
+            'bitpack_allocated_bits_in_batch': tf.cast(tf.round(bitpack_allocated_bits_in_batch__), dtype=tf.uint64),
+            'sampler_allocated_bits_in_batch': tf.cast(tf.round(sampler_allocated_bits_in_batch__), dtype=tf.uint64),
             'total_allocated_bits_in_batch': tf.cast(tf.round(total_allocated_bits_in_batch__), dtype=tf.uint64),
             'num_samples_in_batch': tf.cast(tf.round(num_float_samples_in_batch__), dtype=tf.uint32),
             'bits_in_sampler_dtype': tf.cast(tf.round(self.bits_in_sampler_dtype), dtype=tf.uint32),
@@ -168,66 +184,43 @@ def build_result_dictionary(result_tensors):
         else:
             result[key] = value.numpy()  # Convert tensor to NumPy array
     # Print results
-    print(f"num_events                      : {result['num_events']}")
-    print(f"total_sampled_bits_per_event    : {result['total_sampled_bits_per_event']} bits")
     print("---------------------------------------------------------")
-    print(f"bits_in_sampler_dtype           : {result['bits_in_sampler_dtype']} bits")
-    print(f"bits_in_bitpack_dtype           : {result['bits_in_bitpack_dtype']} bits")
+    print(f"num_events                       : {result['num_events']}")
+    print(f"total_sampled_bits               : {result['total_sampled_bits_per_event'] * result['num_events']} bits")
+    print(f"total_sampled_bits_per_event     : {result['total_sampled_bits_per_event']} bits")
+    print(f"bits_sampled_per_batch           : {result['total_sampled_bits_per_event'] * result['num_events'] // result['total_batches']} bits")
+    print(f"bits_sampled_per_event_per_batch : {result['total_sampled_bits_per_event'] // result['total_batches']} bits")
     print("---------------------------------------------------------")
-    print(f"sample_size                     : {result['sample_size']}")
-    print(f"batch_size                      : {result['batch_size']}")
-    print(f"total_batches                   : {result['total_batches']}")
+    print(f"bits_in_sampler_dtype            : {result['bits_in_sampler_dtype']} bits")
+    print(f"bits_in_bitpack_dtype            : {result['bits_in_bitpack_dtype']} bits")
     print("---------------------------------------------------------")
-    print(f"num_float_samples_in_batch      : {result['num_samples_in_batch']}")
-    print(f"total_allocated_bytes_in_batch  : {result['total_allocated_bits_in_batch'] // (1024 * 1024 * 8)} Mbyte")
-    print(f"sampler_allocated_bits_in_batch : {result['sampler_allocated_bits_in_batch']} bits")
-    print(f"bitpack_allocated_bits_in_batch : {result['bitpack_allocated_bits_in_batch']} bits")
+    print(f"sample_size                      : {result['sample_size']}")
+    print(f"batch_size                       : {result['batch_size']}")
+    print(f"total_batches                    : {result['total_batches']}")
+    print("---------------------------------------------------------")
+    print(f"bit_samples_in_batch             : {result['num_samples_in_batch']}")
+    print(f"allocated_bytes_in_batch         : {result['total_allocated_bits_in_batch'] // (1024 * 1024 * 8)} Mbyte")
+    print(f"sampler_allocated_bytes_in_batch : {result['sampler_allocated_bits_in_batch'] // (1024 * 1024 * 8)} Mbyte")
+    print(f"bitpack_allocated_bytes_in_batch : {result['bitpack_allocated_bits_in_batch'] // (1024 * 1024 * 8)} Mbyte")
     print("---------------------------------------------------------")
     return result
-
-def main():
-    # Define constants/parameters
-    num_events = 2 ** 10  # Example: 67,108,864 events
-    max_bytes = int(1.5 * 2 ** 32)  # 1.5 times 4 GiB
-    batch_size_range = (1, None)  # Minimum batch size is 2
-    sample_size_range = (1, None)  # Minimum sample size is 2
-    total_batches_range = (1, None)  # No maximum on total batches
-
-    # Run optimization
-    result = optimize_batch_and_sample_size(
-        num_events=num_events,
-        max_bytes=max_bytes,
-        sampled_bits_per_event_range=(2**20, 2**21),
-        sampler_dtype=tf.float32,
-        bitpack_dtype=tf.uint8,
-        batch_size_range=batch_size_range,
-        sample_size_range=sample_size_range,
-        total_batches_range=total_batches_range,
-        learning_rate=1.0,
-        max_iterations=1000,
-        tolerance=1e-8,
-    )
 
 
 if __name__ == "__main__":
     optimizer = BatchSampleSizeOptimizer(
-        num_events=100,  # Example value
-        max_bytes=2**32,  # Example value
-        sampled_bits_per_event_range=(8, 1024),  # Example values
-        sampler_dtype=tf.float32,
-        bitpack_dtype=tf.uint8,
-        batch_size_range=(1, 100),
-        sample_size_range=(1, 1000),
-        total_batches_range=(1, 50),
+        num_events=(2 ** 10),
+        max_bytes=int(1.5 * 2 ** 32),  # 1.5 times 4 GiB
+        sampled_bits_per_event_range=(16 * 1000 * 1000, 20 * 1000 * 1000),
+        sampler_dtype=tf.float64,
+        bitpack_dtype=tf.uint16,
+        batch_size_range=(1, 4096),
+        sample_size_range=(1, 128),
+        total_batches_range=(1, 16),
         learning_rate=1.0,
-        max_iterations=500,
-        tolerance=1e-4,
+        max_iterations=1000,
+        tolerance=1e-8,
     )
-
-    # Run the optimization
     optimizer.optimize()
-
-    # Get the results
     results = optimizer.get_results()
 
     # Print results

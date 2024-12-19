@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_nary_op(bin_fn, inputs):
     """
     Applies the bitwise op across the 'num_events' dimension.
@@ -35,30 +35,30 @@ def bitwise_nary_op(bin_fn, inputs):
     final_result = tf.expand_dims(final_result, axis=1)
     return final_result
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_and(inputs):
     return bitwise_nary_op(tf.bitwise.bitwise_and, inputs)
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_or(inputs):
     return bitwise_nary_op(tf.bitwise.bitwise_or, inputs)
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_xor(inputs):
     return bitwise_nary_op(tf.bitwise.bitwise_xor, inputs)
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_not(inputs):
     return tf.bitwise.invert(inputs)
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_nand(inputs):
     return bitwise_not(bitwise_and(inputs))
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_nor(inputs):
     return bitwise_not(bitwise_or(inputs))
 
-@tf.function
+@tf.function(jit_compile=True)
 def bitwise_xnor(inputs):
     return bitwise_not(bitwise_xor(inputs))
