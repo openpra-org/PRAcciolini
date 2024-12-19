@@ -12,6 +12,7 @@ import numpy as np
 
 from pracciolini.grammar.canopy.probability.monte_carlo import mse_loss
 from pracciolini.grammar.canopy.sampler import sizer
+from pracciolini.grammar.canopy.sampler.sizer import BatchSampleSizeOptimizer
 from pracciolini.grammar.canopy.utils import compute_optimal_sample_shape_for_constraints, \
     tensor_as_formatted_bit_vectors
 
@@ -634,7 +635,7 @@ class SubGraphConstructionTests(unittest.TestCase):
         probs = tf.constant([
             [1.0 / (2.0) for x in range(num_events)],
         ], dtype=sampler_dtype)
-        sample_sizer = sizer.optimize_batch_and_sample_size(
+        optimizer = BatchSampleSizeOptimizer(
             num_events=num_events,
             max_bytes=int(2 ** 32),  # 1.5 times 4 GiB
             sampled_bits_per_event_range=(1, None),
@@ -647,11 +648,12 @@ class SubGraphConstructionTests(unittest.TestCase):
             max_iterations=1000,
             tolerance=1e-8,
         )
+        optimizer.optimize()
+        sample_sizer = optimizer.get_results()
         #sample_sizer = {}
         # sample_sizer['total_batches'] = 32
         # sample_sizer['batch_size'] = 256
         # sample_sizer['sample_size'] = 512
-        return
         # Initialize cumulative statistics
         losses, est_mean = batched_estimate(probs_=tf.broadcast_to(probs, [sample_sizer['batch_size'], num_events]),
                          num_batches_=sample_sizer['total_batches'],
