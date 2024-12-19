@@ -574,39 +574,52 @@ class SubGraphConstructionTests(unittest.TestCase):
                              bitpack_dtype_: tf.DType,
                              sampler_dtype_: tf.DType,
                              acc_dtype_: tf.DType = tf.uint64):
-            batch_size_ = probs_.shape[0]
+            # Get dynamic shapes
+            batch_size_ = tf.shape(probs_)[0]
+            num_events_ = tf.shape(probs_)[1]
 
-            event_dim_size_ = sample_size_ * tf.dtypes.as_dtype(bitpack_dtype_).size * 8
-            event_bits_in_batch_ = tf.cast(event_dim_size_, dtype=acc_dtype_)
+            # Convert sample_size_ and num_batches_ to tensors if needed
+            num_batches_tensor = tf.constant(num_batches_, dtype=tf.int32)
+            sample_size_tensor = tf.constant(sample_size_, dtype=acc_dtype_)
 
-            cumulative_one_bits_ = tf.constant(0, dtype=acc_dtype_)
-            updated_expected_value_ = tf.constant(0, shape=(probs_.shape[1],), dtype=tf.float64)
-            print(updated_expected_value_.shape)
-            losses_ = tf.TensorArray(size=num_batches_, dtype=tf.float64)
+            # Get bitpack size in bytes as tensor
+            bitpack_size_bytes = tf.constant(tf.dtypes.as_dtype(bitpack_dtype_).size, dtype=acc_dtype_)
 
-            for batch_idx_ in tf.range(num_batches_):
+            # Compute event dimension size
+            event_dim_size_ = sample_size_tensor * bitpack_size_bytes * tf.constant(8, dtype=acc_dtype_)
+            event_bits_in_batch_ = event_dim_size_
+
+            # Initialize tensors
+            cumulative_one_bits_ = tf.zeros([batch_size_, num_events_], dtype=acc_dtype_)
+            losses_ = tf.TensorArray(dtype=tf.float64, size=num_batches_tensor)
+
+            for batch_idx_ in tf.range(num_batches_tensor):
                 # Generate samples
-                # [batch_size, num_events, n_sample_packs_per_probability * bitpack_dtype * 8].
                 packed_bits_ = generate_bernoulli(
                     probs=probs_,
-                    n_sample_packs_per_probability=int(sample_size_),
+                    n_sample_packs_per_probability=sample_size_,
                     bitpack_dtype=bitpack_dtype_,
                     dtype=sampler_dtype_,
                 )
-                #print(tensor_as_formatted_bit_vectors(packed_bits_))
-                one_bits_in_batch_ = tf.reduce_sum(input_tensor=tf.cast(x=tf.raw_ops.PopulationCount(x=packed_bits_), dtype=acc_dtype_), axis=-1)
-                #print(tensor_as_formatted_bit_vectors(one_bits_in_batch_))
-                cumulative_one_bits_ = cumulative_one_bits_ + one_bits_in_batch_
-                cumulative_bits_ = (tf.cast(batch_idx_, dtype=acc_dtype_) + 1) * event_bits_in_batch_
-                # each row represented the expected value per batch item
-                updated_batch_expected_value_ = cumulative_one_bits_ / cumulative_bits_
-
-                # this can be reduced by averaging over all the estimates in this batch
+                # Compute the number of one-bits
+                one_bits_in_batch_ = tf.reduce_sum(
+                    tf.cast(
+                        tf.raw_ops.PopulationCount(x=packed_bits_),
+                        dtype=acc_dtype_
+                    ),
+                    axis=-1
+                )
+                # Update cumulative counts
+                cumulative_one_bits_ += one_bits_in_batch_
+                cumulative_bits_ = (tf.cast(batch_idx_ + 1, dtype=acc_dtype_)) * event_bits_in_batch_
+                # Compute expected values
+                updated_batch_expected_value_ = tf.cast(cumulative_one_bits_, dtype=tf.float64) / tf.cast(
+                    cumulative_bits_, dtype=tf.float64)
                 updated_expected_value_ = tf.reduce_mean(updated_batch_expected_value_, axis=0)
-                print(updated_expected_value_.shape)
-                updated_batch_loss_ = mse_loss(probs_, updated_expected_value_,)
+                # Compute loss
+                updated_batch_loss_ = mse_loss(probs_, updated_expected_value_)
+                # Write to TensorArray
                 losses_ = losses_.write(batch_idx_, updated_batch_loss_)
-                #print(updated_expected_value_)
 
             return losses_.stack(), updated_expected_value_
 
@@ -617,28 +630,28 @@ class SubGraphConstructionTests(unittest.TestCase):
         #sampler tensor_memory = 1, 1024, 8388608
         sampler_dtype = tf.float32
         bitpack_dtype = tf.uint8
-        num_events = 2 ** 3
+        num_events = 2 ** 10
         probs = tf.constant([
             [1.0 / (2.0) for x in range(num_events)],
         ], dtype=sampler_dtype)
-        # sample_sizer = sizer.optimize_batch_and_sample_size(
-        #     num_events=num_events,
-        #     max_bytes=int(2 ** 32),  # 1.5 times 4 GiB
-        #     sampled_bits_per_event_range=(2 ** 10, None),
-        #     sampler_dtype=sampler_dtype,
-        #     bitpack_dtype=bitpack_dtype,
-        #     batch_size_range=(1, None),
-        #     sample_size_range=(1, None),
-        #     total_batches_range=(1, 1),
-        #     learning_rate=1.0,
-        #     max_iterations=1000,
-        #     tolerance=1e-8,
-        # )
-        sample_sizer = {}
-        sample_sizer['total_batches'] = 1
-        sample_sizer['batch_size'] = 913
-        sample_sizer['sample_size'] = 913
-
+        sample_sizer = sizer.optimize_batch_and_sample_size(
+            num_events=num_events,
+            max_bytes=int(2 ** 32),  # 1.5 times 4 GiB
+            sampled_bits_per_event_range=(1, None),
+            sampler_dtype=sampler_dtype,
+            bitpack_dtype=bitpack_dtype,
+            batch_size_range=(1, 256),
+            sample_size_range=(1, 512),
+            total_batches_range=(1, 32),
+            learning_rate=1.0,
+            max_iterations=1000,
+            tolerance=1e-8,
+        )
+        #sample_sizer = {}
+        # sample_sizer['total_batches'] = 32
+        # sample_sizer['batch_size'] = 256
+        # sample_sizer['sample_size'] = 512
+        return
         # Initialize cumulative statistics
         losses, est_mean = batched_estimate(probs_=tf.broadcast_to(probs, [sample_sizer['batch_size'], num_events]),
                          num_batches_=sample_sizer['total_batches'],
