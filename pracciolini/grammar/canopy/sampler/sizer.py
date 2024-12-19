@@ -65,7 +65,6 @@ class BatchSampleSizeOptimizer(tf.Module):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.5, beta_2=0.8)
         self.max_iterations = tf.constant(max_iterations)
         self.tolerance = tf.constant(tolerance)
-        print(self.max_iterations)
 
     @tf.function
     def bounds_penalty(self, x_min_, x_, x_max_):
@@ -137,17 +136,17 @@ class BatchSampleSizeOptimizer(tf.Module):
 
         # Prepare result (conversion outside tf.function scope)
         result = {
-            'num_events': self.num_events,
-            'batch_size': batch_size_final,
-            'sample_size': sample_size_final,
-            'total_batches': total_batches_final,
-            'total_sampled_bits_per_event': total_sampled_bits_per_event__,
-            'bitpack_allocated_bits_in_batch': bitpack_allocated_bits_in_batch__,
-            'sampler_allocated_bits_in_batch': sampler_allocated_bits_in_batch__,
-            'total_allocated_bits_in_batch': total_allocated_bits_in_batch__,
-            'num_samples_in_batch': num_float_samples_in_batch__,
-            'bits_in_sampler_dtype': self.bits_in_sampler_dtype,
-            'bits_in_bitpack_dtype': self.bits_in_bitpack_dtype,
+            'num_events': tf.cast(tf.round(self.num_events), dtype=tf.uint32),
+            'batch_size': tf.cast(tf.round(batch_size_final), dtype=tf.int32),
+            'sample_size': tf.cast(tf.round(sample_size_final), dtype=tf.int32),
+            'total_batches': tf.cast(tf.round(total_batches_final), dtype=tf.int32),
+            'total_sampled_bits_per_event': tf.cast(tf.round(total_sampled_bits_per_event__), dtype=tf.uint64),
+            'bitpack_allocated_bits_in_batch': tf.cast(tf.round(bitpack_allocated_bits_in_batch__), dtype=tf.uint32),
+            'sampler_allocated_bits_in_batch': tf.cast(tf.round(sampler_allocated_bits_in_batch__), dtype=tf.uint32),
+            'total_allocated_bits_in_batch': tf.cast(tf.round(total_allocated_bits_in_batch__), dtype=tf.uint64),
+            'num_samples_in_batch': tf.cast(tf.round(num_float_samples_in_batch__), dtype=tf.uint32),
+            'bits_in_sampler_dtype': tf.cast(tf.round(self.bits_in_sampler_dtype), dtype=tf.uint32),
+            'bits_in_bitpack_dtype': tf.cast(tf.round(self.bits_in_bitpack_dtype), dtype=tf.uint32),
         }
         return build_result_dictionary(result)
 
