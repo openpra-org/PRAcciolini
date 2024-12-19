@@ -2,11 +2,11 @@ from typing import List, Tuple
 
 import tensorflow as tf
 
-@tf.function
+@tf.function(jit_compile=True)
 def _compute_bits_in_dtype(tensor_type: tf.DType):
     return tf.dtypes.as_dtype(tensor_type).size * 8
 
-@tf.function
+@tf.function(jit_compile=True)
 def _compute_sample_shape(probs: tf.Tensor,       # [batch_size, num_events].
                           n_sample_packs_per_probability: tf.int32,
                           bitpack_dtype: tf.DType,
@@ -28,7 +28,7 @@ def _compute_sample_shape(probs: tf.Tensor,       # [batch_size, num_events].
     samples_reshaped = [batch_size, num_events, n_sample_packs_per_probability, num_bits_per_pack]
     return sample_shape, samples_reshaped
 
-@tf.function
+@tf.function(jit_compile=True)
 def _compute_bit_positions(bitpack_dtype: tf.DType):
     num_bits = _compute_bits_in_dtype(bitpack_dtype)
     positions = tf.range(num_bits, dtype=tf.int32)
@@ -36,7 +36,7 @@ def _compute_bit_positions(bitpack_dtype: tf.DType):
     positions = tf.reshape(positions, [1, 1, -1])  # Shape: [1, 1, num_bits]
     return positions
 
-@tf.function
+@tf.function(jit_compile=True)
 def generate_bernoulli(
     probs: tf.Tensor,
     n_sample_packs_per_probability: tf.int32,
@@ -83,7 +83,7 @@ def generate_bernoulli(
     # Return the packed bits
     return packed_bits  # Output tensor with shape [batch_size, num_events, n_sample_packs_per_probability]
 
-@tf.function
+@tf.function(jit_compile=True)
 def generate_bernoulli_no_bitpack(
     probs: tf.Tensor,
     n_samples: tf.int32,

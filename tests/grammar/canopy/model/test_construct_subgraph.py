@@ -10,11 +10,8 @@ from pracciolini.grammar.canopy.model.subgraph import SubGraph
 import tensorflow as tf
 import numpy as np
 
-from pracciolini.grammar.canopy.probability.monte_carlo import mse_loss
-from pracciolini.grammar.canopy.sampler import sizer
+from pracciolini.grammar.canopy.probability import monte_carlo
 from pracciolini.grammar.canopy.sampler.sizer import BatchSampleSizeOptimizer
-from pracciolini.grammar.canopy.utils import compute_optimal_sample_shape_for_constraints, \
-    tensor_as_formatted_bit_vectors
 
 
 def create_batched_streaming_dataset(probs, num_samples, dtype=tf.float32):
@@ -567,68 +564,10 @@ class SubGraphConstructionTests(unittest.TestCase):
 
 
     def test_generate_bernoulli(self):
-
-        @tf.function(jit_compile=True)
-        def batched_estimate(probs_: tf.Tensor,
-                             num_batches_: int,
-                             sample_size_: int,
-                             bitpack_dtype_: tf.DType,
-                             sampler_dtype_: tf.DType,
-                             acc_dtype_: tf.DType = tf.uint64):
-            # Get dynamic shapes
-            batch_size_ = tf.shape(probs_)[0]
-            num_events_ = tf.shape(probs_)[1]
-
-            # Convert sample_size_ and num_batches_ to tensors if needed
-            num_batches_tensor = tf.constant(num_batches_, dtype=tf.int32)
-            sample_size_tensor = tf.constant(sample_size_, dtype=acc_dtype_)
-
-            # Get bitpack size in bytes as tensor
-            bitpack_size_bytes = tf.constant(tf.dtypes.as_dtype(bitpack_dtype_).size, dtype=acc_dtype_)
-
-            # Compute event dimension size
-            event_dim_size_ = sample_size_tensor * bitpack_size_bytes * tf.constant(8, dtype=acc_dtype_)
-            event_bits_in_batch_ = event_dim_size_
-
-            # Initialize tensors
-            cumulative_one_bits_ = tf.zeros([batch_size_, num_events_], dtype=acc_dtype_)
-            losses_ = tf.TensorArray(dtype=tf.float64, size=num_batches_tensor)
-
-            for batch_idx_ in tf.range(num_batches_tensor):
-                # Generate samples
-                packed_bits_ = generate_bernoulli(
-                    probs=probs_,
-                    n_sample_packs_per_probability=sample_size_,
-                    bitpack_dtype=bitpack_dtype_,
-                    dtype=sampler_dtype_,
-                )
-                # Compute the number of one-bits
-                one_bits_in_batch_ = tf.reduce_sum(
-                    tf.cast(
-                        tf.raw_ops.PopulationCount(x=packed_bits_),
-                        dtype=acc_dtype_
-                    ),
-                    axis=-1
-                )
-                # Update cumulative counts
-                cumulative_one_bits_ += one_bits_in_batch_
-                cumulative_bits_ = (tf.cast(batch_idx_ + 1, dtype=acc_dtype_)) * event_bits_in_batch_
-                # Compute expected values
-                updated_batch_expected_value_ = tf.cast(cumulative_one_bits_, dtype=tf.float64) / tf.cast(
-                    cumulative_bits_, dtype=tf.float64)
-                updated_expected_value_ = tf.reduce_mean(updated_batch_expected_value_, axis=0)
-                # Compute loss
-                updated_batch_loss_ = mse_loss(probs_, updated_expected_value_)
-                # Write to TensorArray
-                losses_ = losses_.write(batch_idx_, updated_batch_loss_)
-
-            return losses_.stack(), updated_expected_value_
-
         #tf.profiler.experimental.start('../../../../logs')
         #tf.compat.v1.disable_eager_execution()
         tf.config.run_functions_eagerly(False)
 
-        #sampler tensor_memory = 1, 1024, 8388608
         sampler_dtype = tf.float32
         bitpack_dtype = tf.uint8
         num_events = 2 ** 10
@@ -637,25 +576,21 @@ class SubGraphConstructionTests(unittest.TestCase):
         ], dtype=sampler_dtype)
         optimizer = BatchSampleSizeOptimizer(
             num_events=num_events,
-            max_bytes=int(2 ** 32),  # 1.5 times 4 GiB
-            sampled_bits_per_event_range=(1, None),
+            max_bytes=int(1.5 * 2 ** 32),  # 1.5 times 4 GiB
+            sampled_bits_per_event_range=(16 * 1000 * 1000, 20 * 1000 * 1000),
             sampler_dtype=sampler_dtype,
             bitpack_dtype=bitpack_dtype,
-            batch_size_range=(1, 256),
-            sample_size_range=(1, 512),
-            total_batches_range=(1, 32),
+            batch_size_range=(1, 4096),
+            sample_size_range=(1, 128),
+            total_batches_range=(1, 16),
             learning_rate=1.0,
             max_iterations=1000,
             tolerance=1e-8,
         )
         optimizer.optimize()
         sample_sizer = optimizer.get_results()
-        #sample_sizer = {}
-        # sample_sizer['total_batches'] = 32
-        # sample_sizer['batch_size'] = 256
-        # sample_sizer['sample_size'] = 512
-        # Initialize cumulative statistics
-        losses, est_mean = batched_estimate(probs_=tf.broadcast_to(probs, [sample_sizer['batch_size'], num_events]),
+
+        losses, est_mean = monte_carlo.batched_estimate(probs_=tf.broadcast_to(probs, [sample_sizer['batch_size'], num_events]),
                          num_batches_=sample_sizer['total_batches'],
                          sample_size_=sample_sizer['sample_size'],
                          bitpack_dtype_=bitpack_dtype,
@@ -665,21 +600,6 @@ class SubGraphConstructionTests(unittest.TestCase):
         print(f"Batch Losses: {losses}")
         print(f"Known Probabilities ({len(probs.numpy()[0])}): {probs.numpy()}")
         print(f"Estimated Means    ({len(est_mean.numpy())}): {est_mean.numpy()}")
-
-        return
-        packed_bits = generate_bernoulli(
-            probs=probs,
-            n_sample_packs_per_probability=int(sample_size),
-            bitpack_dtype=bitpack_dtype,
-            dtype=sampler_dtype,
-        )
-
-        samples_per_batch = sample_size * tf.dtypes.as_dtype(bitpack_dtype).size * 8
-        total_samples = batch_size * samples_per_batch
-        print(f"N = ({total_samples})[num_batches ({batch_size}) x samples_per_batch ({samples_per_batch})]")
-        lower_limit, expected_value, upper_limit = tally(packed_bits)
-        losses = tf.keras.losses.MSE(probs, expected_value)
-        print(f"MSE losses: {losses}")
 
 if __name__ == "__main__":
     #SubGraphConstructionTests().test_parametrized_seed_and_batch()

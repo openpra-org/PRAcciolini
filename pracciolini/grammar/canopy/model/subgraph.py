@@ -657,7 +657,7 @@ class SubGraph:
             Callable: A function that when called with input tensors returns output tensors.
         """
 
-        @tf.function
+        @tf.function(jit_compile=True)
         def func(*inputs):
             feed_dict = dict(zip(self.inputs, inputs))
             outputs = self.execute(feed_dict)

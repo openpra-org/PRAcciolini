@@ -2,10 +2,10 @@ from typing import Tuple
 
 import tensorflow as tf
 
-from pracciolini.grammar.canopy.utils import tensor_as_formatted_bit_vectors
+from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
 
 
-@tf.function
+@tf.function(jit_compile=True)
 def expectation(x: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     Computes the expected value (mean) of bits set to 1 in the input tensor per probability.
@@ -27,7 +27,7 @@ def expectation(x: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
     expected_value = one_bits / all_bits
     return expected_value, all_bits
 
-@tf.function
+@tf.function(jit_compile=True)
 def count_bits(x: tf.Tensor, dtype=tf.uint32) -> Tuple[tf.Tensor, tf.Tensor]:
     #sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
     # Count the number of bits set to 1 in each element
@@ -36,7 +36,7 @@ def count_bits(x: tf.Tensor, dtype=tf.uint32) -> Tuple[tf.Tensor, tf.Tensor]:
     one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=-1)
     return one_bits, all_bits
 
-@tf.function
+@tf.function(jit_compile=True)
 def count_one_bits(x: tf.Tensor, dtype=tf.uint32) -> Tuple[tf.Tensor, tf.Tensor]:
     #sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
     # Count the number of bits set to 1 in each element
@@ -44,13 +44,13 @@ def count_one_bits(x: tf.Tensor, dtype=tf.uint32) -> Tuple[tf.Tensor, tf.Tensor]
     one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=-1)
     return one_bits
 
-@tf.function
+@tf.function(jit_compile=True)
 def variance_from_mean(expected_value: tf.Tensor) -> tf.Tensor:
     one_minus_mean = tf.math.subtract(x=tf.constant(1.0, dtype=expected_value.dtype), y=expected_value)
     variance = tf.math.multiply(x=expected_value, y=one_minus_mean)
     return variance
 
-@tf.function
+@tf.function(jit_compile=True)
 def standard_error_from_variance(variance: tf.Tensor, num_samples: tf.Tensor) -> tf.Tensor:
     """
     Computes the standard error from variance and number of samples.
@@ -66,7 +66,7 @@ def standard_error_from_variance(variance: tf.Tensor, num_samples: tf.Tensor) ->
     std_err = tf.math.sqrt(squared)
     return std_err
 
-@tf.function
+@tf.function(jit_compile=True)
 def expectation_with_confidence_interval(x: tf.Tensor, dtype=tf.float64) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
     """
     Computes the expected value (mean) with confidence intervals for the input tensor.
@@ -94,11 +94,11 @@ def expectation_with_confidence_interval(x: tf.Tensor, dtype=tf.float64) -> Tupl
     upper_limit = tf.clip_by_value(expected_value + margin_of_error, 0.0, 1.0)
     return lower_limit, expected_value, upper_limit
 
-@tf.function
+@tf.function(jit_compile=True)
 def variational_loss(x: tf.Tensor):
     raise NotImplementedError("variational_loss implementation pending")
 
-@tf.function
+@tf.function(jit_compile=True)
 def mse_loss(y_true: tf.Tensor, y_pred: tf.Tensor, dtype: tf.DType = tf.float64) -> tf.Tensor:
     """
     Custom Mean Squared Error loss function that operates in float64 precision.
@@ -114,3 +114,63 @@ def mse_loss(y_true: tf.Tensor, y_pred: tf.Tensor, dtype: tf.DType = tf.float64)
     y_pred = tf.cast(y_pred, dtype=dtype)
     loss = tf.reduce_mean(tf.square(y_pred - y_true))
     return loss
+
+
+@tf.function(jit_compile=True)
+def batched_estimate(probs_: tf.Tensor,
+                     num_batches_: int,
+                     sample_size_: int,
+                     bitpack_dtype_: tf.DType,
+                     sampler_dtype_: tf.DType,
+                     acc_dtype_: tf.DType = tf.uint64):
+    # Get dynamic shapes
+    batch_size_ = tf.shape(probs_)[0]
+    num_events_ = tf.shape(probs_)[1]
+
+    # Convert sample_size_ and num_batches_ to tensors if needed
+    num_batches_tensor = tf.constant(num_batches_, dtype=tf.int32)
+    sample_size_tensor = tf.constant(sample_size_, dtype=acc_dtype_)
+
+    # Get bitpack size in bytes as tensor
+    bitpack_size_bytes = tf.constant(tf.dtypes.as_dtype(bitpack_dtype_).size, dtype=acc_dtype_)
+
+    # Compute event dimension size
+    event_dim_size_ = sample_size_tensor * bitpack_size_bytes * tf.constant(8, dtype=acc_dtype_)
+    event_bits_in_batch_ = event_dim_size_
+
+    # Initialize tensors
+    cumulative_one_bits_ = tf.zeros([batch_size_, num_events_], dtype=acc_dtype_)
+    losses_ = tf.TensorArray(dtype=tf.float64, size=num_batches_tensor)
+
+    for batch_idx_ in tf.range(num_batches_tensor):
+        # Generate samples
+        packed_bits_ = generate_bernoulli(
+            probs=probs_,
+            n_sample_packs_per_probability=sample_size_,
+            bitpack_dtype=bitpack_dtype_,
+            dtype=sampler_dtype_,
+        )
+
+        # logic/tree here
+
+        # Compute the number of one-bits
+        one_bits_in_batch_ = tf.reduce_sum(
+            tf.cast(
+                tf.raw_ops.PopulationCount(x=packed_bits_),
+                dtype=acc_dtype_
+            ),
+            axis=-1
+        )
+        # Update cumulative counts
+        cumulative_one_bits_ += one_bits_in_batch_
+        cumulative_bits_ = (tf.cast(batch_idx_ + 1, dtype=acc_dtype_)) * event_bits_in_batch_
+        # Compute expected values
+        updated_batch_expected_value_ = tf.cast(cumulative_one_bits_, dtype=tf.float64) / tf.cast(
+            cumulative_bits_, dtype=tf.float64)
+        updated_expected_value_ = tf.reduce_mean(updated_batch_expected_value_, axis=0)
+        # Compute loss
+        updated_batch_loss_ = mse_loss(probs_, updated_expected_value_)
+        # Write to TensorArray
+        losses_ = losses_.write(batch_idx_, updated_batch_loss_)
+
+    return losses_.stack(), updated_expected_value_
