@@ -12,6 +12,7 @@ def compute_bits_in_dtype(tensor_type: tf.DType) -> int:
     """
     return tf.dtypes.as_dtype(tensor_type).size * 8
 
+@tf.function
 def optimize_batch_and_sample_size(
     num_events: int,
     max_bytes: int,
@@ -43,7 +44,7 @@ def optimize_batch_and_sample_size(
         tolerance (float): Tolerance for stopping criteria.
 
     Returns:
-        dict: A dictionary containing the optimal values and related computations.
+        dict: A dictionary containing tensors of the optimal values and related computations.
     """
     # Compute bits in data types (Python integers)
     bits_in_sampler_dtype = compute_bits_in_dtype(sampler_dtype)
@@ -89,7 +90,7 @@ def optimize_batch_and_sample_size(
 
     @tf.function
     def bounds_penalty(x_min_, x_, x_max_):
-        return tf.math.square(tf.nn.relu(x_min_ - x_)) + tf.math.square(tf.nn.relu(x_ - x_max_))
+        return tf.square(tf.nn.relu(x_min_ - x_)) + tf.square(tf.nn.relu(x_ - x_max_))
 
     @tf.function
     def compute_forward_pass(total_batches_, batch_size_, sample_size_, num_events_, bits_in_bitpack_dtype_, bits_in_sampler_dtype_):
@@ -154,19 +155,37 @@ def optimize_batch_and_sample_size(
 
     # Prepare result (conversion outside tf.function scope)
     result = {
-        'num_events': int(num_events.numpy()),
-        'batch_size': int(batch_size_final.numpy()),
-        'sample_size': int(sample_size_final.numpy()),
-        'total_batches': int(total_batches_final.numpy()),
-        'total_sampled_bits_per_event': int(total_sampled_bits_per_event__.numpy()),
-        'bitpack_allocated_bits_in_batch': int(bitpack_allocated_bits_in_batch__.numpy()),
-        'sampler_allocated_bits_in_batch': int(sampler_allocated_bits_in_batch__.numpy()),
-        'total_allocated_bits_in_batch': int(total_allocated_bits_in_batch__.numpy()),
-        'num_samples_in_batch': int(num_float_samples_in_batch__.numpy()),
-        'bits_in_sampler_dtype': int(bits_in_sampler_dtype.numpy()),
-        'bits_in_bitpack_dtype': int(bits_in_bitpack_dtype.numpy()),
+        'num_events': num_events,
+        'batch_size': batch_size_final,
+        'sample_size': sample_size_final,
+        'total_batches': total_batches_final,
+        'total_sampled_bits_per_event': total_sampled_bits_per_event__,
+        'bitpack_allocated_bits_in_batch': bitpack_allocated_bits_in_batch__,
+        'sampler_allocated_bits_in_batch': sampler_allocated_bits_in_batch__,
+        'total_allocated_bits_in_batch': total_allocated_bits_in_batch__,
+        'num_samples_in_batch': num_float_samples_in_batch__,
+        'bits_in_sampler_dtype': bits_in_sampler_dtype,
+        'bits_in_bitpack_dtype': bits_in_bitpack_dtype,
     }
+    return result
 
+def build_result_dictionary(result_tensors):
+    """
+    Converts tensors in the result dictionary to Python native types.
+
+    Args:
+        result_tensors (dict): A dictionary containing tensors.
+
+    Returns:
+        dict: A dictionary with tensors converted to Python native types.
+    """
+    result = {}
+    for key, value in result_tensors.items():
+        # Check if the tensor is a scalar tensor
+        if isinstance(value, tf.Tensor) and value.shape == ():
+            result[key] = value.numpy().item()  # Convert scalar tensor to Python scalar
+        else:
+            result[key] = value.numpy()  # Convert tensor to NumPy array
     # Print results
     print(f"num_events                      : {result['num_events']}")
     print(f"total_sampled_bits_per_event    : {result['total_sampled_bits_per_event']} bits")
@@ -183,7 +202,6 @@ def optimize_batch_and_sample_size(
     print(f"sampler_allocated_bits_in_batch : {result['sampler_allocated_bits_in_batch']} bits")
     print(f"bitpack_allocated_bits_in_batch : {result['bitpack_allocated_bits_in_batch']} bits")
     print("---------------------------------------------------------")
-
     return result
 
 def main():
