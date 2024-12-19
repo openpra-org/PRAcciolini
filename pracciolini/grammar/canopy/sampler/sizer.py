@@ -166,23 +166,25 @@ class BatchSampleSizeOptimizer(tf.Module):
         }
         return build_result_dictionary(result)
 
-def build_result_dictionary(result_tensors):
+def build_result_dictionary(result_tensors, quiet=False):
     """
     Converts tensors in the result dictionary to Python native types.
 
     Args:
         result_tensors (dict): A dictionary containing tensors.
-
+        quiet (bool): Skip printing the results to console.
     Returns:
         dict: A dictionary with tensors converted to Python native types.
     """
     result = {}
-    for key, value in result_tensors.items():
+    for key_, value_ in result_tensors.items():
         # Check if the tensor is a scalar tensor
-        if isinstance(value, tf.Tensor) and value.shape == ():
-            result[key] = value.numpy().item()  # Convert scalar tensor to Python scalar
+        if isinstance(value_, tf.Tensor) and value_.shape == ():
+            result[key_] = value_.numpy().item()  # Convert scalar tensor to Python scalar
         else:
-            result[key] = value.numpy()  # Convert tensor to NumPy array
+            result[key_] = value_.numpy()  # Convert tensor to NumPy array
+    if quiet:
+        return result
     # Print results
     print("---------------------------------------------------------")
     print(f"num_events                       : {result['num_events']}")
