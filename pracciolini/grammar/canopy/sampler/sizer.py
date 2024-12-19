@@ -18,7 +18,6 @@ def compute_bits_in_dtype(tensor_type: tf.DType) -> int:
 
 import tensorflow as tf
 
-@tf.function
 def optimize_batch_and_sample_size(
     num_events: int,
     max_bytes: int,
@@ -85,20 +84,23 @@ def optimize_batch_and_sample_size(
         return tf.math.square(tf.nn.relu(x_min_ - x_)) + tf.math.square(tf.nn.relu(x_ - x_max_))
 
     @tf.function
-    def compute_forward_pass(total_batches_, batch_size_, num_events_, sample_size_, bits_in_bitpack_dtype_, bits_in_sampler_dtype_):
-        total_sampled_bits_per_event_ = tf.math.reduce_prod([total_batches_, batch_size_, sample_size_, bits_in_bitpack_dtype_])
+    def compute_forward_pass(total_batches_, batch_size_, sample_size_, num_events_, bits_in_bitpack_dtype_, bits_in_sampler_dtype_):
+        ## memory utilization related stats
+        num_float_samples_in_batch_ = tf.math.reduce_prod([batch_size_, num_events_, sample_size_, bits_in_bitpack_dtype_])
+        sampler_allocated_bits_in_batch_ = tf.math.multiply(num_float_samples_in_batch_, bits_in_sampler_dtype_)
         bitpack_allocated_bits_in_batch_ = tf.math.reduce_prod([batch_size_, num_events_, sample_size_, bits_in_bitpack_dtype_])
-        sampler_allocated_bits_in_batch_ = tf.math.reduce_prod([batch_size_, num_events_, sample_size_, bits_in_sampler_dtype_])
         total_allocated_bits_in_batch_ = tf.math.add(bitpack_allocated_bits_in_batch_, sampler_allocated_bits_in_batch_)
-        return total_sampled_bits_per_event_, total_allocated_bits_in_batch_
+        ## event related stats
+        total_sampled_bits_per_event_ = tf.math.reduce_prod([total_batches_, batch_size_, sample_size_, bits_in_bitpack_dtype_])
+        return total_sampled_bits_per_event_, total_allocated_bits_in_batch_, num_float_samples_in_batch_, sampler_allocated_bits_in_batch_, bitpack_allocated_bits_in_batch_
 
-    prev_loss = 0
+    prev_loss = 0.0
     wait_time = 0
     patience = 10
-    for iteration in range(max_iterations):
+    for iteration in tf.range(max_iterations):
         with tf.GradientTape() as tape:
 
-            total_sampled_bits_per_event, total_allocated_bits_in_batch = compute_forward_pass(total_batches, batch_size, num_events, sample_size, bits_in_bitpack_dtype, bits_in_sampler_dtype)
+            total_sampled_bits_per_event, total_allocated_bits_in_batch, _, _, _ = compute_forward_pass(total_batches, batch_size, sample_size, num_events, bits_in_bitpack_dtype, bits_in_sampler_dtype)
 
             memory_size_penalty = bounds_penalty(1.0, total_allocated_bits_in_batch, max_bits)
             batch_size_penalty = bounds_penalty(batch_size_min, batch_size, batch_size_max)
@@ -122,47 +124,54 @@ def optimize_batch_and_sample_size(
             loss = objective + penalties
 
         # Compute gradients
-        #print(batch_size.numpy(), sample_size.numpy(), float(total_allocated_bits_in_batch.numpy())/(1024. * 1024. * 8.))
+        #print([batch_size, sample_size, total_batches], float(total_allocated_bits_in_batch.numpy())/(1024. * 1024. * 8.))
         gradients = tape.gradient(loss, [batch_size, sample_size, total_batches])
         optimizer.apply_gradients(zip(gradients, [batch_size, sample_size, total_batches]))
 
         # Apply variable bounds
-        batch_size.assign(tf.clip_by_value(batch_size, 1.0, batch_size_max))
-        sample_size.assign(tf.clip_by_value(sample_size, 1.0, sample_size_max))
-        total_batches.assign(tf.clip_by_value(total_batches, 1.0, total_batches_max))
+        # batch_size.assign(tf.clip_by_value(batch_size, 1.0, batch_size_max))
+        # sample_size.assign(tf.clip_by_value(sample_size, 1.0, sample_size_max))
+        # total_batches.assign(tf.clip_by_value(total_batches, 1.0, total_batches_max))
         #print(objective, total_sampled_bits_per_event, penalties)
-        abs_loss = abs(loss.numpy())
-        diff = abs(prev_loss - abs_loss)
-        fractional_change = float(diff)/(prev_loss + 1.)
-        if fractional_change <= tolerance:
-            wait_time += 1
-            if wait_time >= patience:
-                print(f"Early stopping at iteration {iteration}")
-                break
-        else:
-            wait_time = 0  # Reset wait counter if loss improves
-        prev_loss = abs_loss
+        # abs_loss = abs(loss)
+        # diff = abs(prev_loss - abs_loss)
+        # fractional_change = float(diff)/(prev_loss + 1.)
+        # if fractional_change <= tolerance:
+        #     wait_time += 1
+        #     if wait_time >= patience:
+        #         #print(f"Early stopping at iteration {iteration}")
+        #         #break
+        # else:
+        #     wait_time = 0  # Reset wait counter if loss improves
+        # prev_loss = abs_loss
         #print(prev_loss, abs_loss, wait_time, tolerance, diff, float(diff)/prev_loss)
     # Round variables to nearest integers
-    batch_size_opt = int(round(batch_size.numpy()))
-    sample_size_opt = int(round(sample_size.numpy()))
-    total_batches_opt = int(round(total_batches.numpy()))
-    total_sampled_bits_per_event_opt = total_batches_opt * batch_size_opt * sample_size_opt * int(bits_in_bitpack_dtype.numpy())
-    bitpack_allocated_bits_in_batch_opt = batch_size_opt * int(num_events.numpy()) * sample_size_opt * int(bits_in_bitpack_dtype.numpy())
-    sampler_allocated_bits_in_batch_opt = batch_size_opt * int(num_events.numpy()) * sample_size_opt * int(bits_in_sampler_dtype.numpy())
-    total_allocated_bits_in_batch_opt = bitpack_allocated_bits_in_batch_opt + sampler_allocated_bits_in_batch_opt
+    #@tf.function(autograph=False, jit_compile=True)
+    #def tape_func():
+
+
+    #tape_func()
+    batch_size_final = tf.constant((round(batch_size.numpy())), dtype=tf.float32)
+    sample_size_final = tf.constant((round(sample_size.numpy())), dtype=tf.float32)
+    total_batches_final = tf.constant((round(total_batches.numpy())), dtype=tf.float32)
+    compute_forward_pass(total_batches_final, batch_size_final, sample_size_final, num_events, bits_in_bitpack_dtype, bits_in_sampler_dtype)
+    (total_sampled_bits_per_event__,
+     total_allocated_bits_in_batch__,
+     num_float_samples_in_batch__,
+     sampler_allocated_bits_in_batch__,
+     bitpack_allocated_bits_in_batch__) = compute_forward_pass(total_batches, batch_size, num_events, sample_size, bits_in_bitpack_dtype, bits_in_sampler_dtype)
 
     # Prepare result
     result = {
-        'batch_size': batch_size_opt,
-        'sample_size': sample_size_opt,
-        'total_batches': total_batches_opt,
-        'total_sampled_bits_per_event': total_sampled_bits_per_event_opt,
-        'bitpack_allocated_bits_in_batch': bitpack_allocated_bits_in_batch_opt,
-        'sampler_allocated_bits_in_batch': sampler_allocated_bits_in_batch_opt,
-        'total_allocated_bits_in_batch': total_allocated_bits_in_batch_opt,
-        'ObjectiveValue': total_sampled_bits_per_event_opt,
         'num_events': int(num_events.numpy()),
+        'batch_size': int(batch_size_final.numpy()),
+        'sample_size': int(sample_size_final.numpy()),
+        'total_batches': int(total_batches_final.numpy()),
+        'total_sampled_bits_per_event': int(total_sampled_bits_per_event__.numpy()),
+        'bitpack_allocated_bits_in_batch': int(bitpack_allocated_bits_in_batch__.numpy()),
+        'sampler_allocated_bits_in_batch': int(sampler_allocated_bits_in_batch__.numpy()),
+        'total_allocated_bits_in_batch': int(total_allocated_bits_in_batch__.numpy()),
+        'num_samples_in_batch': int(num_float_samples_in_batch__.numpy()),
         'bits_in_sampler_dtype': int(bits_in_sampler_dtype.numpy()),
         'bits_in_bitpack_dtype': int(bits_in_bitpack_dtype.numpy()),
     }
@@ -178,6 +187,7 @@ def optimize_batch_and_sample_size(
     print(f"batch_size                      : {result['batch_size']}")
     print(f"total_batches                   : {result['total_batches']}")
     print("---------------------------------------------------------")
+    print(f"num_float_samples_in_batch      : {result['num_samples_in_batch']}")
     print(f"total_allocated_bytes_in_batch  : {result['total_allocated_bits_in_batch'] // (1024 * 1024 * 8)} Mbyte")
     print(f"sampler_allocated_bits_in_batch : {result['sampler_allocated_bits_in_batch']} bits")
     print(f"bitpack_allocated_bits_in_batch : {result['bitpack_allocated_bits_in_batch']} bits")
@@ -187,19 +197,19 @@ def optimize_batch_and_sample_size(
 
 def main():
     # Define constants/parameters
-    num_events = 2 ** 20  # Example: 67,108,864 events
+    num_events = 2 ** 10  # Example: 67,108,864 events
     max_bytes = int(1.5 * 2 ** 32)  # 1.5 times 4 GiB
     batch_size_range = (1, None)  # Minimum batch size is 2
     sample_size_range = (1, None)  # Minimum sample size is 2
-    total_batches_range = (1, 128)  # No maximum on total batches
+    total_batches_range = (1, None)  # No maximum on total batches
 
     # Run optimization
     result = optimize_batch_and_sample_size(
         num_events=num_events,
         max_bytes=max_bytes,
-        sampled_bits_per_event_range=(2**20, None),
-        sampler_dtype=tf.float64,
-        bitpack_dtype=tf.uint64,
+        sampled_bits_per_event_range=(2**20, 2**21),
+        sampler_dtype=tf.float32,
+        bitpack_dtype=tf.uint8,
         batch_size_range=batch_size_range,
         sample_size_range=sample_size_range,
         total_batches_range=total_batches_range,
