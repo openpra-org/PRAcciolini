@@ -481,20 +481,20 @@ class SubGraphConstructionTests(unittest.TestCase):
 
         sampler_dtype = tf.float32
         bitpack_dtype = tf.uint8
-        num_events = 2 ** 10
+        num_events = 2 ** 10 * 10
         probs = tf.constant([
             [1.0 / (2.0) for x in range(num_events)],
         ], dtype=sampler_dtype)
         optimizer = BatchSampleSizeOptimizer(
             num_events=num_events,
-            max_bytes=int(1.8 * 2 ** 32),  # 1.8 times 4 GiB
-            sampled_bits_per_event_range=(None, None),
+            max_bytes=int(1.42 * 2 ** 32),  # 1.8 times 4 GiB
+            sampled_bits_per_event_range=(1, None),
             sampler_dtype=sampler_dtype,
             bitpack_dtype=bitpack_dtype,
             batch_size_range=(1, None),
             sample_size_range=(1, None),
-            total_batches_range=(1, None),
-            max_iterations=3000,
+            total_batches_range=(100, 100),
+            max_iterations=10000,
             tolerance=1e-8,
         )
         optimizer.optimize()
@@ -718,8 +718,8 @@ class SubGraphConstructionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     #SubGraphConstructionTests().test_parametrized_seed_and_batch()
-    SubGraphConstructionTests().test_generate_bernoulli_and_eval_gates()
-    #SubGraphConstructionTests().test_generate_bernoulli()
+    #SubGraphConstructionTests().test_generate_bernoulli_and_eval_gates()
+    SubGraphConstructionTests().test_generate_bernoulli()
 
 
 def build_binary_xor_tree_debug(inputs):

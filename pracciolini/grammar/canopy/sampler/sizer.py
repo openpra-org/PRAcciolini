@@ -90,23 +90,6 @@ class BatchSampleSizeOptimizer(tf.Module):
     def bounds_penalty(self, x_min_, x_, x_max_):
         return tf.square(tf.nn.relu(x_min_ - x_)) + tf.square(tf.nn.relu(x_ - x_max_))
 
-    # @tf.function(jit_compile=True)
-    # def bounds_penalty(self, x_min_, x_, x_max_):
-    #     # Steepness of the sigmoid function
-    #     k = 50.0
-    #
-    #     # Compute penalties for lower and upper bounds
-    #     lower_penalty = tf.sigmoid(-k * (x_ - x_min_))
-    #     upper_penalty = tf.sigmoid(k * (x_ - x_max_))
-    #
-    #     # Combine penalties
-    #     penalty = lower_penalty + upper_penalty
-    #
-    #     # # Ensure the penalty is between 0 and 1
-    #     # penalty = tf.minimum(penalty, 1.0)
-    #
-    #     return penalty
-
     @tf.function(jit_compile=True)
     def compute_forward_pass(self, total_batches_, batch_size_, sample_size_, num_events_, bits_in_bitpack_dtype_, bits_in_sampler_dtype_):
         # Memory utilization related stats
@@ -146,19 +129,8 @@ class BatchSampleSizeOptimizer(tf.Module):
                 # Maximize total_sampled_bits_per_event and minimize total_batches
                 # tf.math.log(total_allocated_bits_in_batch / self.max_bits) +
                 objective =  -tf.math.log(1e-20 + 1/self.total_batches) - tf.math.log(total_allocated_bits_in_batch / self.max_bits + 1e-20)
-                # print("memory_size_penalty", memory_size_penalty.numpy())
-                # print("batch_size_penalty", batch_size_penalty.numpy())
-                # print("sample_size_penalty", sample_size_penalty.numpy())
-                # print("total_batches_penalty", total_batches_penalty.numpy())
-                # print("total_sampled_bits_penalty", total_sampled_bits_penalty.numpy())
-                # print("penalties", penalties.numpy())
-                # print("params:", [self.batch_size.numpy(), self.sample_size.numpy(), self.total_batches.numpy()])
-                # print("objective:", objective.numpy())
-
                 # Total loss
                 loss = objective + penalties
-                # print("loss:", loss.numpy())
-                # print("---")
 
             # Compute gradients
             gradients = tape.gradient(loss, [self.batch_size, self.sample_size, self.total_batches])
