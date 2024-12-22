@@ -2,8 +2,9 @@ import timeit
 
 import tensorflow as tf
 
+from pracciolini.grammar.canopy.module.bitwise import bitwise_xor, bitwise_or, bitwise_and, bitwise_xnor, bitwise_not
 from pracciolini.grammar.canopy.module.sampler import Sampler
-from pracciolini.grammar.canopy.module.tree_builder import build_binary_xor_tree
+from pracciolini.grammar.canopy.sampler.sizer import BatchSampleSizeOptimizer
 
 
 class LogicTreeBroadcastSampler(Sampler):
@@ -130,7 +131,12 @@ class LogicTreeBroadcastSampler(Sampler):
         p05_, p95_ = self._tally(means_)
         return p05_, means_, p95_
 
-
+    @tf.function(jit_compile=True)
+    def tally_from_samples(self, samples):
+        ones_ = self._count(samples)
+        means_ = tf.cast(ones_, dtype=self._acc_dtype) / self._num_sampled_bits_in_batch
+        p05_, p95_ = self._tally(means_)
+        return p05_, means_, p95_
 
 
 if __name__ == "__main__":
@@ -147,23 +153,49 @@ if __name__ == "__main__":
         return outputs
 
 
-    num_events = 1024
+    #num_events = 1024
+
+    @tf.function(jit_compile=True)
+    def my_logic_expression(inputs):
+        xor_1 = tf.bitwise.bitwise_xor(bitwise_xor(inputs), bitwise_xnor(inputs))
+        xnor_1 = tf.bitwise.bitwise_xor(bitwise_xnor(inputs), bitwise_xor(inputs))
+        return tf.bitwise.bitwise_xor(bitwise_not(xor_1), bitwise_not(xnor_1))
+
+
+    num_events = 8192
+    sampler_dtype = tf.float32
+    bitpack_dtype = tf.uint8
+    optimizer = BatchSampleSizeOptimizer(
+        num_events=num_events,
+        max_bytes=int(1.8 * 2 ** 32),  # 1.8 times 4 GiB
+        sampled_bits_per_event_range=(1e6, None),
+        sampler_dtype=sampler_dtype,
+        bitpack_dtype=bitpack_dtype,
+        batch_size_range=(1, None),
+        sample_size_range=(1, None),
+        total_batches_range=(1, None),
+        max_iterations=10000,
+        tolerance=1e-8,
+    )
 
     input_probs = (tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32))
 
+    optimizer.optimize()
+    sample_sizer = optimizer.get_results()
+
     sampler = LogicTreeBroadcastSampler(
-        logic_fn=build_binary_xor_tree,
-        num_inputs=num_events,
+        logic_fn=bitwise_xor,
+        num_inputs=sample_sizer['num_events'],
         num_outputs=1,
-        num_batches=2,
-        batch_size=474,
-        sample_size=474,
+        num_batches=sample_sizer['total_batches'],
+        batch_size=sample_sizer['batch_size'],
+        sample_size=sample_sizer['sample_size'],
         bitpack_dtype=tf.uint8,
         sampler_dtype=tf.float32,
         acc_dtype=tf.float32
     )
 
-    count = 100
+    count = 1
     t = timeit.Timer(lambda: sampler.tally(input_probs))
     times = t.timeit(number=count)
     print(f"total_time (s): {times}")

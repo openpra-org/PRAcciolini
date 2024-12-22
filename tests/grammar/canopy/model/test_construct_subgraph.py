@@ -1,7 +1,10 @@
 import unittest
 import timeit
 
+from tensorflow.python.framework.dtypes import int4_ref
+
 from pracciolini.grammar.canopy.model.layers import BitpackedBernoulli, Expectation
+from pracciolini.grammar.canopy.model.ops.bitwise import bitwise_xor, bitwise_or
 from pracciolini.grammar.canopy.model.ops.monte_carlo import tally
 from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
 from pracciolini.grammar.canopy.model.tensor import Tensor
@@ -294,15 +297,6 @@ class SubGraphConstructionTests(unittest.TestCase):
 
             #model.evaluate(x=sample)
 
-    ## TODO::
-    ## TODO:
-    ##  1. we need a running average type of Expected Value Reducer, that can be fed more samples, and the estimate improves.
-    ##  2. we need to do this for variance, as well as variational loss
-    ##  3. we need to play with model.predict() and see what the loss metrics mean here
-    ##      3.1: model.predict() has a sample_weight parameter!
-    ##      3.2: model.predict() has a mask parameter!
-    ##  4. we need to be able to stream data in from tf.data.DataSet, or alternatively, sample separately and stream it in
-
     def test_simple_ops(self):
         # f_11 = A|B|C
         # f_12 = ~D
@@ -479,89 +473,6 @@ class SubGraphConstructionTests(unittest.TestCase):
             outputs = model.predict(x=stub_input_data)
             print((outputs.numpy()))
 
-    def test_parametrized_seed_and_batch(self):
-        #tf.profiler.experimental.start('../../../../logs')
-        # tf.debugging.experimental.enable_dump_debug_info('../../../../logs', tensor_debug_mode="FULL_HEALTH",
-        #                                                  circular_buffer_size=-1)
-
-        tf.config.run_functions_eagerly(False)
-
-        sampler_dtype = tf.float32
-        bitpack_dtype = tf.uint8
-        num_events = 7
-        batch_size, sample_size, extras = compute_optimal_sample_shape_for_constraints(num_events=num_events,
-                                                                               max_bytes=int(2**28),
-                                                                               dtype=sampler_dtype,
-                                                                               batch_size_range=(256, None),
-                                                                               sample_size_range=(1,None),
-                                                                               bitpack_dtype=bitpack_dtype)
-        total_samples = batch_size * sample_size
-        total_samples_bit_packed = total_samples * tf.dtypes.as_dtype(bitpack_dtype).size * 8
-
-        datastream_float_type = tf.float32
-        datastream_batch_size = batch_size                                # size of each batch (num_batches should be num_samples/batch_size)
-        datastream_num_batches = total_samples // datastream_batch_size    # Number of batches
-
-        print(f"N = ({total_samples})[batch_size ({batch_size}) x datastream_num_batches ({datastream_num_batches})]")
-
-        probs = tf.constant([1.0 / (x + 1.0) for x in range(num_events)], dtype=datastream_float_type)
-
-        # Create the dataset
-        dataset = tf.data.Dataset.from_tensors(probs).repeat(total_samples)
-        batched_dataset = dataset.batch(datastream_batch_size, num_parallel_calls=32)
-        batched_dataset = batched_dataset.prefetch(tf.data.experimental.AUTOTUNE)
-
-        # Define Keras inputs
-        probs_input = tf.keras.Input(shape=(num_events,), dtype=datastream_float_type)
-
-        # Create the layers
-        samples_layer = BitpackedBernoulli(sample_size=sample_size,
-                                           bitpack_dtype=bitpack_dtype,
-                                           dtype=sampler_dtype)(probs_input)
-
-        # Build and compile the Keras model
-        model = tf.keras.Model(inputs=probs_input, outputs=samples_layer)
-        model.compile(run_eagerly=False,
-                      steps_per_execution=1,
-                      jit_compile=True,)
-        model.summary()
-
-        # tb_callback = tf.keras.callbacks.TensorBoard(log_dir="../../../../logs", profile_batch='10, 15')
-        # Run the model prediction on the current batch
-        model.predict(
-            x=batched_dataset,
-            steps=datastream_num_batches, # Ensure you cover the entire dataset,
-            # callbacks=[tb_callback]
-        )
-        #tf.profiler.experimental.stop()
-
-        # Iterate over the dataset
-      #  for batch_probs in batched_dataset:
-
-
-        return
-        # Define Keras inputs
-        probs_input = tf.keras.Input(shape=(width,), dtype=float_type)
-        n_sample_packs_input = tf.keras.Input(shape=(), dtype=tf.int32)
-
-        # Create the layers
-        samples_layer = BitpackedBernoulli()([probs_input, n_sample_packs_input])
-        #expected_values_layer = Expectation()(samples_layer)
-        # Build and compile the Keras model
-        model = tf.keras.Model(inputs=[probs_input, n_sample_packs_input], outputs=samples_layer)
-        model.compile()
-        model.summary()
-
-        # Profile from batches 10 to 15
-        tb_callback = tf.keras.callbacks.TensorBoard(log_dir="../../../../logs")
-        # Run the model prediction
-        model.predict(
-            x=[probs_array, n_sample_packs_array],
-            callbacks=[tb_callback],
-            batch_size=batch_size  # Controls how many samples are processed at once
-        )
-        #print(f"Outputs:\n{outputs}\n")
-
 
     def test_generate_bernoulli(self):
         #tf.profiler.experimental.start('../../../../logs')
@@ -576,15 +487,14 @@ class SubGraphConstructionTests(unittest.TestCase):
         ], dtype=sampler_dtype)
         optimizer = BatchSampleSizeOptimizer(
             num_events=num_events,
-            max_bytes=int(1.5 * 2 ** 32),  # 1.5 times 4 GiB
-            sampled_bits_per_event_range=(16 * 1000 * 1000, 20 * 1000 * 1000),
+            max_bytes=int(1.8 * 2 ** 32),  # 1.8 times 4 GiB
+            sampled_bits_per_event_range=(None, None),
             sampler_dtype=sampler_dtype,
             bitpack_dtype=bitpack_dtype,
-            batch_size_range=(1, 4096),
-            sample_size_range=(1, 128),
-            total_batches_range=(1, 16),
-            learning_rate=1.0,
-            max_iterations=1000,
+            batch_size_range=(1, None),
+            sample_size_range=(1, None),
+            total_batches_range=(1, None),
+            max_iterations=3000,
             tolerance=1e-8,
         )
         optimizer.optimize()
@@ -601,8 +511,241 @@ class SubGraphConstructionTests(unittest.TestCase):
         print(f"Known Probabilities ({len(probs.numpy()[0])}): {probs.numpy()}")
         print(f"Estimated Means    ({len(est_mean.numpy())}): {est_mean.numpy()}")
 
+
+    def test_generate_bernoulli_and_eval_gates(self):
+        # tf.profiler.experimental.start('../../../../logs')
+        # tf.compat.v1.disable_eager_execution()
+        tf.config.run_functions_eagerly(False)
+
+        @tf.function(jit_compile=True)
+        ## P(A) = 0.5
+        ## P(D) = 0.2
+        ## P(E) = 0.16667
+        ## P(outputs) = 0.5 = P[((A | D) ^ E) & (A | D) = (A | D) & ~E]
+        def some_logic_expression(inputs):
+            # input_shape = [batch_size, num_events, sample_size]
+            #print(inputs.shape)
+            g1 = tf.bitwise.bitwise_or(inputs[:, 0, :], inputs[:, 3, :])
+            g2 = tf.bitwise.bitwise_xor(inputs[:, 4, :], g1)
+            g3 = tf.bitwise.bitwise_and(g1, g2)
+            outputs = g3
+            # output_shape = [batch_size, sample_size] (for a single output)
+            # to be
+            return outputs
+
+        #@tf.function(jit_compile=True)
+        ## P(A) = 0.5
+        ## P(D) = 0.2
+        ## P(E) = 0.16667
+        ## P(X) = 0.000001
+        ## P(F) = probability of failure; P(outputs) = 0.5 = P[((A | D) ^ E) & (A | D) = (A | D) & ~E]
+
+
+        "F = ((AC | DC) ^ E) & (A | D) millions in size -> expansion 2^(n) -> contraction --> (A | D) & ~E"
+        "P(F) = P[(A|D)&~E)] = [P(A) + P(D) - P(A)•P(D)] • [1 - P(E)]"
+        "P(A|B|C) =~ P(A) + P(B) + P(C)  + P(A)P(B) + P(A)P(C) + P(B)P(C)"  # 2^(N)
+
+        "P(F) = P(A|B); E[A | B] -> P(F) - O(N)"
+
+        def another_logic_expression(inputs):
+            return bitwise_or(inputs)
+
+        @tf.function(jit_compile=True)
+        def batched_estimate_outputs(
+                             input_probs_: tf.Tensor,
+                             output_probs_: tf.Tensor,
+                             fn_logic,
+                             num_batches_: int,
+                             sample_size_: int,
+                             bitpack_dtype_: tf.DType,
+                             sampler_dtype_: tf.DType,
+                             acc_dtype_: tf.DType = tf.uint64):
+            # Get dynamic shapes
+            batch_size_ = tf.shape(input_probs_)[0] # batch_size_ remains the same for inputs and outputs
+
+            #num_input_events_ = tf.shape(input_probs_)[1]
+            #num_output_events_ = tf.shape(output_probs_)[1]
+
+            # Convert sample_size_ and num_batches_ to tensors if needed
+            num_batches_tensor = tf.constant(num_batches_, dtype=tf.int32)
+            sample_size_tensor = tf.constant(sample_size_, dtype=acc_dtype_)
+
+            # Get bitpack size in bytes as tensor
+            bitpack_size_bytes = tf.constant(tf.dtypes.as_dtype(bitpack_dtype_).size, dtype=acc_dtype_)
+
+            # Compute event dimension size
+            event_dim_size_ = sample_size_tensor * bitpack_size_bytes * tf.constant(8, dtype=acc_dtype_)
+            event_bits_in_batch_ = event_dim_size_
+
+            # Initialize tensors
+            cumulative_one_bits_ = tf.zeros((batch_size_,), dtype=acc_dtype_)
+            losses_ = tf.TensorArray(dtype=tf.float64, size=num_batches_tensor)
+
+            for batch_idx_ in tf.range(num_batches_tensor):
+                # Generate samples
+                packed_bits_ = generate_bernoulli(
+                    probs=input_probs_,
+                    n_sample_packs_per_probability=sample_size_,
+                    bitpack_dtype=bitpack_dtype_,
+                    dtype=sampler_dtype_,
+                )
+                # print(packed_bits_.shape)
+                output_packed_bits_ = fn_logic(packed_bits_)
+                #print(output_packed_bits_.shape)
+
+                # Compute the number of one-bits
+                one_bits_in_batch_ = tf.reduce_sum(
+                    tf.cast(
+                        tf.raw_ops.PopulationCount(x=output_packed_bits_),
+                        dtype=acc_dtype_
+                    ),
+                    axis=-1
+                )
+                # print(f"output_packed_bits_.shape: {output_packed_bits_.shape}")
+                # print(f"one_bits_in_batch_.shape: {one_bits_in_batch_.shape}")
+                # Update cumulative counts
+                cumulative_one_bits_ += one_bits_in_batch_
+                cumulative_bits_ = (tf.cast(batch_idx_ + 1, dtype=acc_dtype_)) * event_bits_in_batch_
+                # Compute expected values
+                updated_batch_expected_value_ = tf.cast(cumulative_one_bits_, dtype=tf.float64) / tf.cast(cumulative_bits_, dtype=tf.float64)
+                updated_expected_value_ = tf.reduce_mean(updated_batch_expected_value_, axis=0)
+                # Compute loss
+                updated_batch_loss_ = monte_carlo.mse_loss(output_probs_, updated_expected_value_)
+                # Write to TensorArray
+                losses_ = losses_.write(batch_idx_, updated_batch_loss_)
+
+            return updated_expected_value_, losses_.stack()
+
+        # sample_sizer = {
+        #     "batch_size": 16,
+        #     "total_batches": 8,
+        #     "sample_size": 128,
+        #     "num_events": 5,
+        # }
+        num_events = 8192
+        sampler_dtype = tf.float32
+        bitpack_dtype = tf.uint8
+        optimizer = BatchSampleSizeOptimizer(
+            num_events=num_events,
+            max_bytes=int(1.8 * 2 ** 32),  # 1.8 times 4 GiB
+            sampled_bits_per_event_range=(1e6, None),
+            sampler_dtype=sampler_dtype,
+            bitpack_dtype=bitpack_dtype,
+            batch_size_range=(1, None),
+            sample_size_range=(1, None),
+            total_batches_range=(1, None),
+            max_iterations=10000,
+            tolerance=1e-8,
+        )
+        optimizer.optimize()
+        sample_sizer = optimizer.get_results()
+        input_probs = tf.constant([
+            [1.0 / (x + 2.0) for x in range(num_events)],
+        ], dtype=tf.float32)
+
+        num_outputs = 1
+        known_output_probs = tf.constant([
+            [1.0 / (x + 2.0) for x in range(num_outputs)],
+        ], dtype=tf.float32)
+
+        def build_binary_xor_tree(inputs):
+            # inputs: [batch_size, num_events, sample_size]
+            current_gates = inputs  # Shape [batch_size, num_gates, sample_size]
+
+            #@tf.function(jit_compile=True)
+            def cond(current_gates_):
+                num_gates = tf.shape(current_gates_)[1]
+                return tf.greater(num_gates, 1)
+
+            def body(current_gates):
+                num_gates = tf.shape(current_gates)[1]
+                # Determine if num_gates is odd
+                is_odd = tf.equal(tf.keras.ops.mod(num_gates, 2), 1)
+                pair_num = num_gates // 2
+                # Indices for even and odd positions
+                even_indices = tf.range(0, pair_num * 2, delta=2)
+                odd_indices = tf.range(1, pair_num * 2, delta=2)
+                # Gather even and odd gates
+                even_gates = tf.gather(current_gates, even_indices, axis=1)
+                odd_gates = tf.gather(current_gates, odd_indices, axis=1)
+                # XOR them
+                new_gates = tf.bitwise.bitwise_xor(even_gates, odd_gates)
+
+                # If num_gates is odd, append the last gate
+                def append_last_gate():
+                    last_gate = tf.gather(current_gates, [num_gates - 1], axis=1)
+                    return tf.concat([new_gates, last_gate], axis=1)
+
+                def do_nothing():
+                    return new_gates
+
+                # Update current_gates considering odd/even number of gates
+                current_gates = tf.cond(is_odd, append_last_gate, do_nothing)
+                return [current_gates]  # Return as list to match loop_vars
+
+            final_gates = tf.while_loop(
+                cond=cond,
+                body=body,
+                loop_vars=[current_gates],
+                shape_invariants=[tf.TensorShape([None, None, None])]
+            )
+
+            final_output = tf.squeeze(final_gates[0], axis=1)  # Remove the gates dimension
+            return final_output  # Shape [batch_size, sample_size]
+
+
+        def run():
+            est_mean, losses = batched_estimate_outputs(
+                input_probs_=tf.broadcast_to(input_probs, [sample_sizer['batch_size'], num_events]),
+                output_probs_=tf.broadcast_to(known_output_probs, [sample_sizer['batch_size'], num_outputs]),
+                fn_logic=build_binary_xor_tree,
+                num_batches_=sample_sizer['total_batches'],
+                sample_size_=sample_sizer['sample_size'],
+                bitpack_dtype_=tf.uint8,
+                sampler_dtype_=tf.float32)
+
+            #print(f"Batch Losses: {losses}")
+            #print(f"Known Probabilities ({len(known_output_probs.numpy()[0])}): {known_output_probs.numpy()}")
+            #print(f"Estimated Means    ({len(est_mean.numpy())}): {est_mean.numpy()}")
+            print(f"Estimated Means: {est_mean.numpy()}")
+
+        count = 10
+        times = timeit.timeit(lambda: run(), number=count)
+        print(f"total_time (s): {times}")
+        print(f"avg_time (s): {times / float(count)}")
+
+
+
 if __name__ == "__main__":
     #SubGraphConstructionTests().test_parametrized_seed_and_batch()
-    SubGraphConstructionTests().test_generate_bernoulli()
+    SubGraphConstructionTests().test_generate_bernoulli_and_eval_gates()
+    #SubGraphConstructionTests().test_generate_bernoulli()
 
 
+def build_binary_xor_tree_debug(inputs):
+    @tf.function(jit_compile=True)
+    def xor(a, b):
+        return tf.bitwise.bitwise_xor(a, b)
+
+    # input_shape = [batch_size, num_events, sample_size]
+    num_input_events = inputs.shape[1]
+    print(f"build_binary_xor_tree inputs.shape: {inputs.shape}")
+    level_1_gates = []
+    for input_idx in tf.range(num_input_events, delta=2):
+        # gate_shape = [batch_size, sample_size]
+        l1_gate = xor(inputs[:, input_idx, :], inputs[:, input_idx + 1, :])
+        level_1_gates.append(l1_gate)
+        print(f"level_1_gates input_idx: {input_idx}, {input_idx + 1}")
+    print(f"level_1_gates: {len(level_1_gates)}")
+
+    level_2_gates = []
+    for input_idx in tf.range(len(level_1_gates), delta=2):
+        print(input_idx, input_idx + 1)
+        l2_gate = xor(level_1_gates[input_idx], level_1_gates[input_idx + 1])
+        level_2_gates.append(l2_gate)
+        print(f"level_2_gates input_idx: {input_idx}, {input_idx + 1}")
+    print(f"level_2_gates: {len(level_2_gates)}")
+
+    level_3_gate = xor(level_2_gates[0], level_2_gates[1])
+    print(f"level_3_gate : {level_3_gate.shape}, {level_3_gate}")
+    return level_3_gate
