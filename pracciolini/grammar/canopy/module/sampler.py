@@ -121,14 +121,6 @@ class Sampler(tf.Module):
 
     @staticmethod
     @tf.function(jit_compile=True)
-    def _tally_ones(x: tf.Tensor, axis=None, dtype=tf.uint32) -> tf.Tensor:
-        # sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
-        pop_counts = tf.raw_ops.PopulationCount(x=x)
-        one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=axis)
-        return one_bits
-
-    @staticmethod
-    @tf.function(jit_compile=True)
     def _p95_ci(means: tf.Tensor, total: tf.Tensor, dtype=tf.float64) -> Tuple[tf.Tensor, tf.Tensor]:
         variance = means * (1 - means)
         std_err = tf.sqrt(variance / total)
