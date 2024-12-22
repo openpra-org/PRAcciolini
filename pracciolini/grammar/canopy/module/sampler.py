@@ -1,115 +1,142 @@
+from typing import Tuple, List
+
 import tensorflow as tf
 
-from pracciolini.grammar.canopy.model.ops.sampler import generate_bernoulli
-from pracciolini.grammar.canopy.probability.monte_carlo import mse_loss
 
+class Sampler(tf.Module):
 
-class LogicTreeSampler(tf.Module):
-    def __init__(self, logic_fn, num_inputs, num_outputs, num_batches, batch_size, sample_size,
-                 bitpack_dtype: tf.uint8,
-                 sampler_dtype: tf.float32,
-                 acc_dtype: tf.float32):
-        super().__init__()
-        self._num_inputs = num_inputs
-        self._num_outputs = num_outputs
-        self._num_batches = num_batches
-        self._batch_size = batch_size
-        self._sample_size = sample_size
-        self._bitpack_dtype = bitpack_dtype
-        self._sampler_dtype = sampler_dtype
-        self._acc_dtype = acc_dtype
+    def __init__(self, name=None):
+        super().__init__(name)
 
-        self._mse_loss = tf.function(
-            func=lambda y_true, y_pred: mse_loss(y_true, y_pred, dtype=self._acc_dtype),
-            input_signature=[
-                tf.TensorSpec(shape=[self._batch_size, self._sample_size], dtype=self._acc_dtype, name='y_true'),
-                tf.TensorSpec(shape=[self._batch_size, self._sample_size], dtype=self._acc_dtype, name='y_pred'),
-            ],
-            jit_compile=True
-        )
-
-        self.generate_bernoulli_batch = tf.function(
-            func=lambda probs, seed: generate_bernoulli(
-                probs=probs,
-                n_sample_packs_per_probability=tf.constant(value=self._sample_size, dtype=tf.int32) ,
-                bitpack_dtype=self._bitpack_dtype,
-                dtype=self._sampler_dtype,
-                seed=seed
-            ),
-            input_signature=[
-                tf.TensorSpec(shape=[self._batch_size, self._num_inputs], dtype=self._sampler_dtype, name='input_probs'),
-                tf.TensorSpec(shape=[], dtype=tf.int32, name='seed'),
-            ],
-            jit_compile=True
-        )
-
-        self.generate_bernoulli_broadcast_no_batch = tf.function(
-            func=lambda probs, seed: generate_bernoulli(
-                probs=tf.broadcast_to(probs, [self._batch_size, self._num_inputs]),
-                n_sample_packs_per_probability=tf.constant(value=self._sample_size, dtype=tf.int32) ,
-                bitpack_dtype=self._bitpack_dtype,
-                dtype=self._sampler_dtype,
-                seed=seed
-            ),
-            input_signature=[
-                tf.TensorSpec(shape=[self._num_inputs], dtype=self._sampler_dtype, name='input_probs'),
-                tf.TensorSpec(shape=[], dtype=tf.int32, name='seed'),
-            ],
-            jit_compile=True
-        )
-
-        self._logic_fn = tf.function(
-            func=logic_fn,
-            input_signature=[
-                tf.TensorSpec(shape=[self._batch_size, self._num_inputs, self._sample_size], dtype=self._bitpack_dtype, name='sampled_inputs'),
-            ],
-            jit_compile=True
-        )
-
+    @staticmethod
     @tf.function(jit_compile=True)
-    def generate(self, input_probs_, seed=372):
-        return self.generate_bernoulli_broadcast_no_batch(probs=input_probs_, seed=seed,)
+    def _mse_loss(y_true: tf.Tensor, y_pred: tf.Tensor, dtype: tf.DType = tf.float64) -> tf.Tensor:
+        """
+        Custom Mean Squared Error loss function that operates in float64 precision.
 
+        Args:
+            y_true (tf.Tensor): Ground truth values. Shape: [batch_size, n_events], dtype can be any type.
+            y_pred (tf.Tensor): Predicted values. Shape: [batch_size, n_events], dtype can be any type.
+            dtype (tf.DType): dtype can be any float type, defaults to tf.float64
+        Returns:
+            tf.Tensor: Scalar loss value. defaults to tf.float64
+        """
+        y_true = tf.cast(y_true, dtype=dtype)
+        y_pred = tf.cast(y_pred, dtype=dtype)
+        loss = tf.reduce_mean(tf.square(y_pred - y_true))
+        return loss
+
+    @staticmethod
     @tf.function(jit_compile=True)
-    def generate_batch(self, batch_input_probs_, seed=372):
-        return self.generate_bernoulli_batch(probs=batch_input_probs_, seed=seed,)
+    def _compute_bits_in_dtype(tensor_type: tf.DType):
+        return tf.dtypes.as_dtype(tensor_type).size * 8
 
+    @staticmethod
     @tf.function(jit_compile=True)
-    def sample(self, input_probs_, seed=372):
-        input_packed_bits_ = self.generate_bernoulli_broadcast_no_batch(probs=input_probs_,seed=seed,)
-        output_packed_bits_ = self._logic_fn(input_packed_bits_)
-        return output_packed_bits_
+    def _compute_sample_shape(probs: tf.Tensor,  # [batch_size, num_events].
+                              n_sample_packs_per_probability: tf.int32,
+                              bitpack_dtype: tf.DType,
+                              ) -> Tuple[List, List]:
+        """
+        Generates bit-packed Bernoulli random variables based on input probabilities.
+            Args:
+            probs (tf.Tensor): Tensor of probabilities with shape [batch_size, num_events].
+            n_sample_packs_per_probability (int): Number of sample packs to generate per probability.
+            bitpack_dtype (tf.DType): Data type for bit-packing (e.g., tf.uint8).
+        """
+        batch_size = tf.cast(tf.shape(probs)[0], dtype=tf.int32)
+        num_events = tf.cast(tf.shape(probs)[1], dtype=tf.int32)
+        num_bits_per_pack = tf.cast(Sampler._compute_bits_in_dtype(bitpack_dtype), dtype=tf.int32)
+        num_bits = tf.math.multiply(x=num_bits_per_pack, y=n_sample_packs_per_probability)
+        # shape for sampling
+        sample_shape = tf.cast([batch_size, num_events, num_bits], dtype=tf.int32)
+        # Reshape samples to prepare for bit-packing
+        samples_reshaped = [batch_size, num_events, n_sample_packs_per_probability, num_bits_per_pack]
+        return sample_shape, samples_reshaped
 
+    @staticmethod
+    @tf.function(jit_compile=True)
+    def _compute_bit_positions(bitpack_dtype: tf.DType):
+        num_bits = Sampler._compute_bits_in_dtype(bitpack_dtype)
+        positions = tf.range(num_bits, dtype=tf.int32)
+        positions = tf.cast(positions, bitpack_dtype)
+        positions = tf.reshape(positions, [1, 1, -1])  # Shape: [1, 1, num_bits]
+        return positions
 
+    @staticmethod
+    @tf.function(jit_compile=True)
+    def _generate_bernoulli(
+            probs: tf.Tensor,
+            n_sample_packs_per_probability: tf.int32,
+            bitpack_dtype: tf.DType,
+            dtype: tf.DType = tf.float64,
+            seed: int = None,
+    ) -> tf.Tensor:
+        """
+        Generates bit-packed Bernoulli random variables based on input probabilities.
 
-if __name__ == "__main__":
-    def some_logic_expression(inputs):
-        # input_shape = [batch_size, num_events, sample_size]
-        # print(inputs.shape)
-        g1 = tf.bitwise.bitwise_or(inputs[:, 0, :], inputs[:, 3, :])
-        g2 = tf.bitwise.bitwise_xor(inputs[:, 4, :], g1)
-        g3 = tf.bitwise.bitwise_and(g1, g2)
-        outputs = g3
-        # output_shape = [batch_size, sample_size] (for a single output)
-        # to be
-        return outputs
+        Args:
+            probs (tf.Tensor): Tensor of probabilities with shape [batch_size, num_events].
+            n_sample_packs_per_probability (int): Number of sample packs to generate per probability.
+            bitpack_dtype (tf.DType): Data type for bit-packing (e.g., tf.uint8).
+            dtype (tf.DType, optional): Data type for sampling. Defaults to tf.float64.
+            seed (int, optional): Random seed. Defaults to None.
 
+        Returns:
+            tf.Tensor: Bit-packed tensor of Bernoulli samples with shape [batch_size, num_events].
+        """
+        sample_shape, samples_bitpack_reshape = Sampler._compute_sample_shape(probs=probs,
+                                                                      n_sample_packs_per_probability=n_sample_packs_per_probability,
+                                                                      bitpack_dtype=bitpack_dtype)
 
-    num_events = 5
+        # sample_shape = [batch_size, num_events, n_sample_packs_per_probability * bitpack_dtype * 8].
+        # Prepare probabilities to match the shape of 'dist'
+        probs_cast = tf.cast(probs, dtype=dtype)
+        probs_expanded = tf.expand_dims(probs_cast, axis=-1)  # Shape: [batch_size, num_events, 1]
 
-    input_probs = tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32)
+        # Generate uniform random values
+        dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype)
+        # Generate Bernoulli samples
+        samples = tf.cast(tf.math.less(x=dist, y=probs_expanded), dtype=bitpack_dtype)  # Shape: [batch_size, num_events, num_bits]
+        # Reshape samples to prepare for bit-packing
+        samples_reshaped = tf.reshape(samples, samples_bitpack_reshape)  # Shape: [batch_size, num_events, n_sample_packs_per_probability, num_bits_per_pack]
 
-    sampler = LogicTreeSampler(
-        logic_fn=some_logic_expression,
-        num_inputs=num_events,
-        num_outputs=1,
-        num_batches=2,
-        batch_size=1024,
-        sample_size=1024,
-        bitpack_dtype=tf.uint8,
-        sampler_dtype=tf.float32,
-        acc_dtype=tf.float32
-    )
+        # Compute bit positions using the helper function
+        positions = Sampler._compute_bit_positions(bitpack_dtype)  # Shape: [1, 1, 1, num_bits_per_pack]
+        # Shift bits accordingly
+        shifted_bits = tf.bitwise.left_shift(samples_reshaped, positions)  # Same shape as samples_reshaped
+        # Sum over bits to get packed integers
+        packed_bits = tf.reduce_sum(shifted_bits, axis=-1)  # Shape: [batch_size, num_events, n_sample_packs_per_probability]
 
-    output_bits = sampler.sample(input_probs)
-    print(output_bits)
+        # Return the packed bits
+        return packed_bits  # Output tensor with shape [batch_size, num_events, n_sample_packs_per_probability]
+
+    @staticmethod
+    @tf.function(jit_compile=True)
+    def _count_one_bits(x: tf.Tensor, axis=None, dtype=tf.uint32) -> tf.Tensor:
+        # sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
+        pop_counts = tf.raw_ops.PopulationCount(x=x)
+        one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=axis)
+        return one_bits
+
+    @staticmethod
+    @tf.function(jit_compile=True)
+    def _tally_ones(x: tf.Tensor, axis=None, dtype=tf.uint32) -> tf.Tensor:
+        # sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
+        pop_counts = tf.raw_ops.PopulationCount(x=x)
+        one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=axis)
+        return one_bits
+
+    @staticmethod
+    @tf.function(jit_compile=True)
+    def _p95_ci(means: tf.Tensor, total: tf.Tensor, dtype=tf.float64) -> Tuple[tf.Tensor, tf.Tensor]:
+        variance = means * (1 - means)
+        std_err = tf.sqrt(variance / total)
+        # Use precomputed Z-score if available, else calculate
+        z_score_p_95 = tf.constant(value=1.959963984540054, dtype=dtype)
+        # Calculate the margin of error
+        margin_of_error = z_score_p_95 * std_err
+        # Calculate confidence interval limits and clip to [0, 1]
+        lower_limit = tf.clip_by_value(means - margin_of_error, 0.0, 1.0)
+        upper_limit = tf.clip_by_value(means + margin_of_error, 0.0, 1.0)
+        return lower_limit, upper_limit
