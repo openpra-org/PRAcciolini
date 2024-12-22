@@ -3,6 +3,7 @@ import timeit
 import tensorflow as tf
 
 from pracciolini.grammar.canopy.module.sampler import Sampler
+from pracciolini.grammar.canopy.module.tree_builder import build_binary_xor_tree
 
 
 class LogicTreeBroadcastSampler(Sampler):
@@ -146,17 +147,17 @@ if __name__ == "__main__":
         return outputs
 
 
-    num_events = 1000
+    num_events = 1024
 
     input_probs = tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32)
 
     sampler = LogicTreeBroadcastSampler(
-        logic_fn=some_logic_expression,
+        logic_fn=build_binary_xor_tree,
         num_inputs=num_events,
         num_outputs=1,
         num_batches=2,
-        batch_size=10,
-        sample_size=10,
+        batch_size=474,
+        sample_size=474,
         bitpack_dtype=tf.uint8,
         sampler_dtype=tf.float32,
         acc_dtype=tf.float32
@@ -169,4 +170,5 @@ if __name__ == "__main__":
     times = t.timeit(number=count)
     print(f"total_time (s): {times}")
     print(f"avg_time (s): {times / float(count)}")
+    print(sampler.tally(input_probs))
     print(sampler.tally(input_probs))
