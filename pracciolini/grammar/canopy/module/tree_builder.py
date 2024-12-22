@@ -11,14 +11,11 @@ def build_binary_xor_tree(inputs):
         tf.Tensor: Output tensor with shape [batch_size, sample_size] after reducing the num_events dimension via bitwise XOR operations.
     """
     # Ensure that num_events is known at compile time
-    batch_size = inputs.shape[0]
-    num_events = inputs.shape[1]
+    batch_size = inputs.shape[1]
     sample_size = inputs.shape[2]
-    if any(dim is None for dim in [batch_size, num_events, sample_size]):
-        raise ValueError("All input dimensions must be known at compile time for XLA compilation.")
 
     # Transpose inputs to have num_events as the first dimension
-    inputs_T = tf.transpose(inputs, perm=[1, 0, 2])  # Shape: [num_events, batch_size, sample_size]
+    #inputs_T = tf.transpose(inputs, perm=[1, 0, 2])  # Shape: [num_events, batch_size, sample_size]
 
     # Use tf.scan to perform cumulative bitwise XOR over the num_events dimension
     # tf.scan applies the XOR function cumulatively and returns the final result
@@ -31,7 +28,8 @@ def build_binary_xor_tree(inputs):
     # Perform the reduction using tf.scan or tf.foldl
     output = tf.foldl(
         xor_fn,
-        elems=inputs_T,
+        elems=inputs,
+        parallel_iterations=16,
         initializer=initial_accumulator,
     )  # Output shape: [batch_size, sample_size]
 
