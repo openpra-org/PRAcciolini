@@ -34,7 +34,7 @@ class BatchSampleSizeOptimizer(tf.Module):
             self.bits_in_bitpack_dtype if sampled_bits_per_event_range[0] is None else sampled_bits_per_event_range[0]
         )
         self.sampled_bits_per_event_max = (
-            2**31 - 1 if sampled_bits_per_event_range[1] is None else sampled_bits_per_event_range[1]
+            2**34 if sampled_bits_per_event_range[1] is None else sampled_bits_per_event_range[1]
         )
 
         self.batch_size_min = batch_size_range[0]
@@ -81,13 +81,31 @@ class BatchSampleSizeOptimizer(tf.Module):
         self.total_batches = tf.Variable(self.total_batches_min, trainable=True, dtype=tf.float64, name='total_batches')
 
         # Optimizer
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.5, beta_2=0.8)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=4.0, beta_1=0.0001, beta_2=0.0002)
+        #self.optimizer = tf.keras.optimizers.SGD(learning_rate=0.2)
         self.max_iterations = tf.constant(max_iterations)
         self.tolerance = tf.constant(tolerance)
 
     @tf.function(jit_compile=True)
     def bounds_penalty(self, x_min_, x_, x_max_):
         return tf.square(tf.nn.relu(x_min_ - x_)) + tf.square(tf.nn.relu(x_ - x_max_))
+
+    # @tf.function(jit_compile=True)
+    # def bounds_penalty(self, x_min_, x_, x_max_):
+    #     # Steepness of the sigmoid function
+    #     k = 50.0
+    #
+    #     # Compute penalties for lower and upper bounds
+    #     lower_penalty = tf.sigmoid(-k * (x_ - x_min_))
+    #     upper_penalty = tf.sigmoid(k * (x_ - x_max_))
+    #
+    #     # Combine penalties
+    #     penalty = lower_penalty + upper_penalty
+    #
+    #     # # Ensure the penalty is between 0 and 1
+    #     # penalty = tf.minimum(penalty, 1.0)
+    #
+    #     return penalty
 
     @tf.function(jit_compile=True)
     def compute_forward_pass(self, total_batches_, batch_size_, sample_size_, num_events_, bits_in_bitpack_dtype_, bits_in_sampler_dtype_):
@@ -122,21 +140,34 @@ class BatchSampleSizeOptimizer(tf.Module):
                     memory_size_penalty, batch_size_penalty, sample_size_penalty,
                     total_batches_penalty, total_sampled_bits_penalty])
 
+                #memory_not_maximed_penalty = self.bounds_penalty(1.0, total_allocated_bits_in_batch, self.max_bits)
+
                 # Objective function
                 # Maximize total_sampled_bits_per_event and minimize total_batches
-                objective = - total_sampled_bits_per_event
+                # tf.math.log(total_allocated_bits_in_batch / self.max_bits) +
+                objective =  -tf.math.log(1e-20 + 1/self.total_batches) - tf.math.log(total_allocated_bits_in_batch / self.max_bits + 1e-20)
+                # print("memory_size_penalty", memory_size_penalty.numpy())
+                # print("batch_size_penalty", batch_size_penalty.numpy())
+                # print("sample_size_penalty", sample_size_penalty.numpy())
+                # print("total_batches_penalty", total_batches_penalty.numpy())
+                # print("total_sampled_bits_penalty", total_sampled_bits_penalty.numpy())
+                # print("penalties", penalties.numpy())
+                # print("params:", [self.batch_size.numpy(), self.sample_size.numpy(), self.total_batches.numpy()])
+                # print("objective:", objective.numpy())
 
                 # Total loss
                 loss = objective + penalties
+                # print("loss:", loss.numpy())
+                # print("---")
 
             # Compute gradients
             gradients = tape.gradient(loss, [self.batch_size, self.sample_size, self.total_batches])
             self.optimizer.apply_gradients(zip(gradients, [self.batch_size, self.sample_size, self.total_batches]))
 
             # Apply variable bounds
-            self.batch_size.assign(tf.clip_by_value(self.batch_size, self.batch_size_min, self.batch_size_max))
-            self.sample_size.assign(tf.clip_by_value(self.sample_size, self.sample_size_min, self.sample_size_max))
-            self.total_batches.assign(tf.clip_by_value(self.total_batches, self.total_batches_min, self.total_batches_max))
+            self.batch_size.assign(tf.clip_by_value(self.batch_size, 1, self.batch_size_max))
+            self.sample_size.assign(tf.clip_by_value(self.sample_size, 1, self.sample_size_max))
+            self.total_batches.assign(tf.clip_by_value(self.total_batches, 1, self.total_batches_max))
 
     def get_results(self):
         self.batch_size.assign(tf.clip_by_value(self.batch_size, 1.0, self.batch_size_max))

@@ -37,11 +37,11 @@ def count_bits(x: tf.Tensor, dtype=tf.uint32) -> Tuple[tf.Tensor, tf.Tensor]:
     return one_bits, all_bits
 
 @tf.function(jit_compile=True)
-def count_one_bits(x: tf.Tensor, dtype=tf.uint32) -> Tuple[tf.Tensor, tf.Tensor]:
+def count_one_bits(x: tf.Tensor, axis=-1, dtype=tf.uint32) -> tf.Tensor:
     #sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
     # Count the number of bits set to 1 in each element
     pop_counts = tf.raw_ops.PopulationCount(x=x)
-    one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=-1)
+    one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=dtype), axis=axis)
     return one_bits
 
 @tf.function(jit_compile=True)
