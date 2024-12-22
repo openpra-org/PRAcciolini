@@ -67,7 +67,7 @@ def generate_bernoulli(
     probs_expanded = tf.expand_dims(probs_cast, axis=-1)  # Shape: [batch_size, num_events, 1]
 
     # Generate uniform random values
-    dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype, seed=seed)
+    dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype)
     # Generate Bernoulli samples
     samples = tf.cast(tf.math.less(x=dist, y=probs_expanded), dtype=bitpack_dtype)  # Shape: [batch_size, num_events, num_bits]
     # Reshape samples to prepare for bit-packing
