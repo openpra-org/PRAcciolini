@@ -43,7 +43,7 @@ class LogicTreeBroadcastSampler(Sampler):
                 seed=seed
             ),
             input_signature=[
-                tf.TensorSpec(shape=[self._batch_size, self._num_inputs], dtype=self._sampler_dtype, name='probs'),
+                tf.TensorSpec(shape=[self._num_inputs, self._batch_size], dtype=self._sampler_dtype, name='probs'),
                 tf.TensorSpec(shape=[], dtype=tf.int32, name='seed'),
             ],
             jit_compile=True
@@ -51,7 +51,7 @@ class LogicTreeBroadcastSampler(Sampler):
 
         self._generate_bernoulli_broadcast_no_batch = tf.function(
             func=lambda probs, seed: super(LogicTreeBroadcastSampler, self)._generate_bernoulli(
-                probs=tf.broadcast_to(probs, [self._batch_size, self._num_inputs]),
+                probs=tf.broadcast_to(tf.expand_dims(probs, axis=1), [self._num_inputs, self._batch_size]),
                 n_sample_packs_per_probability=tf.constant(value=self._sample_size, dtype=tf.int32) ,
                 bitpack_dtype=self._bitpack_dtype,
                 dtype=self._sampler_dtype,
@@ -67,7 +67,7 @@ class LogicTreeBroadcastSampler(Sampler):
         self._logic_fn = tf.function(
             func=logic_fn,
             input_signature=[
-                tf.TensorSpec(shape=[self._batch_size, self._num_inputs, self._sample_size], dtype=self._bitpack_dtype, name='sampled_inputs'),
+                tf.TensorSpec(shape=[self._num_inputs, self._batch_size, self._sample_size], dtype=self._bitpack_dtype, name='sampled_inputs'),
             ],
             jit_compile=True
         )
@@ -138,8 +138,8 @@ if __name__ == "__main__":
     def some_logic_expression(inputs):
         # input_shape = [batch_size, num_events, sample_size]
         # print(inputs.shape)
-        g1 = tf.bitwise.bitwise_or(inputs[:, 0, :], inputs[:, 3, :])
-        g2 = tf.bitwise.bitwise_xor(inputs[:, 4, :], g1)
+        g1 = tf.bitwise.bitwise_or(inputs[0, :, :], inputs[3, :, :])
+        g2 = tf.bitwise.bitwise_xor(inputs[4, :, :], g1)
         g3 = tf.bitwise.bitwise_and(g1, g2)
         outputs = g3
         # output_shape = [batch_size, sample_size] (for a single output)
@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
     num_events = 1024
 
-    input_probs = tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32)
+    input_probs = (tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32))
 
     sampler = LogicTreeBroadcastSampler(
         logic_fn=build_binary_xor_tree,
@@ -163,8 +163,6 @@ if __name__ == "__main__":
         acc_dtype=tf.float32
     )
 
-    # output_bits = sampler.eval(input_probs)
-    # print(output_bits)
     count = 100
     t = timeit.Timer(lambda: sampler.tally(input_probs))
     times = t.timeit(number=count)
