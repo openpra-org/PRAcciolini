@@ -5,6 +5,10 @@ class LogicalExpression(XMLSerializable):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+    @property
+    def referenced_events(self):
+        return self.children
+
 
 class CardinalityExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
@@ -58,7 +62,7 @@ class NandExpression(LogicalExpression):
         super().__init__(*args, **kwargs)
 
 
-class NorExpression(XMLSerializable):
+class NorExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="nor",
                                  children=ExpressionMeta.permitted_tags,
@@ -66,7 +70,7 @@ class NorExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class XnorExpression(XMLSerializable):
+class XnorExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="xnor",
                                  children=ExpressionMeta.permitted_tags,
@@ -74,7 +78,7 @@ class XnorExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class XorExpression(XMLSerializable):
+class XorExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="xor",
                                  children=ExpressionMeta.permitted_tags,
@@ -82,7 +86,7 @@ class XorExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class NotExpression(XMLSerializable):
+class NotExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="not",
                                  children=ExpressionMeta.permitted_tags,
@@ -90,7 +94,7 @@ class NotExpression(XMLSerializable):
         super().__init__(*args, **kwargs)
 
 
-class IffExpression(XMLSerializable):
+class IffExpression(LogicalExpression):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["info"] = XMLInfo(tag="iff",
                                  children=ExpressionMeta.permitted_tags,

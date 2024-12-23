@@ -162,12 +162,12 @@ if __name__ == "__main__":
         return tf.bitwise.bitwise_xor(bitwise_not(xor_1), bitwise_not(xnor_1))
 
 
-    num_events = 8192
+    num_events = 2
     sampler_dtype = tf.float32
     bitpack_dtype = tf.uint8
     optimizer = BatchSampleSizeOptimizer(
         num_events=num_events,
-        max_bytes=int(1.8 * 2 ** 32),  # 1.8 times 4 GiB
+        max_bytes=int(1 * 2 ** 32),  # 1.8 times 4 GiB
         sampled_bits_per_event_range=(1e6, None),
         sampler_dtype=sampler_dtype,
         bitpack_dtype=bitpack_dtype,
@@ -200,5 +200,5 @@ if __name__ == "__main__":
     times = t.timeit(number=count)
     print(f"total_time (s): {times}")
     print(f"avg_time (s): {times / float(count)}")
-    print(sampler.tally(input_probs))
-    print(sampler.tally(input_probs))
+    print(sampler.eval(input_probs))
+    print(sampler.eval(input_probs).shape)
