@@ -3,6 +3,7 @@ from typing import List
 from pracciolini.grammar.openpsa.xml.define_event import EventDefinition, NamedEvent
 from pracciolini.grammar.openpsa.xml.expression.logical import LogicalExpression
 from pracciolini.grammar.openpsa.xml.expression.meta import LogicalMeta, ReferenceMeta, ConstantsMeta
+from pracciolini.grammar.openpsa.xml.reference import BasicEventReference, HouseEventReference
 from pracciolini.grammar.openpsa.xml.serializable import XMLInfo
 
 
@@ -44,6 +45,23 @@ class GateDefinition(EventDefinition):
             if isinstance(child, LogicalExpression):
                 return child.info.tag
         return None
+
+    @property
+    def referenced_events(self):
+        if isinstance(self.children[0], LogicalExpression) and self.children[0].info.tag == "not":
+            return self.children[0].referenced_events.referenced_events
+        return self.children[0].referenced_events
+
+    @property
+    def referenced_events_by_type(self):
+        basic_events = []
+        gates = []
+        for event_ref in self.referenced_events:
+            if isinstance(event_ref, BasicEventReference):
+                basic_events.append(event_ref)
+            elif isinstance(event_ref, GateReference):
+                gates.append(event_ref)
+        return basic_events, gates
 
 class GateReference(NamedEvent):
     def __init__(self, *args, **kwargs) -> None:

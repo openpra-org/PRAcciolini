@@ -41,13 +41,14 @@ def bitwise_nary_op2(bitwise_op, inputs):
 
 
 @tf.function(jit_compile=True)
-def bitwise_nary_op(bitwise_op, inputs):
+def bitwise_nary_op(bitwise_op, inputs, name: str):
     """
     Efficiently applies the n-ary bitwise op across the specified axis.
 
     Args:
         bitwise_op (function): The bitwise reduction over the input tensor across the num_events dimension.
         inputs (tf.Tensor): Input tensor with shape (num_events, batch_size, sample_size).
+        name (str): A name for this operation
 
     Returns:
         tf.Tensor: Output tensor with shape [batch_size, sample_size] after reducing the num_events dimension via bitwise op.
@@ -57,35 +58,40 @@ def bitwise_nary_op(bitwise_op, inputs):
         fn=bitwise_op,
         elems=inputs,
         initializer=accumulator_,
-        parallel_iterations=32,
+        parallel_iterations=(inputs.shape[0] + 1),
         swap_memory=True,
+        name=name,
     )
     return result
 
 @tf.function(jit_compile=True)
-def bitwise_and(inputs):
-    return bitwise_nary_op(tf.bitwise.bitwise_and, inputs)
+def bitwise_atleast(inputs, atleast = 1, name: str = "atleast"):
+    return bitwise_nary_op(tf.bitwise.bitwise_or, inputs, name=name)
 
 @tf.function(jit_compile=True)
-def bitwise_or(inputs):
-    return bitwise_nary_op(tf.bitwise.bitwise_or, inputs)
+def bitwise_and(inputs, name: str = "and"):
+    return bitwise_nary_op(bitwise_op=tf.bitwise.bitwise_and, inputs=inputs, name=name)
 
 @tf.function(jit_compile=True)
-def bitwise_xor(inputs):
-    return bitwise_nary_op(tf.bitwise.bitwise_xor, inputs)
+def bitwise_or(inputs, name: str = "or"):
+    return bitwise_nary_op(bitwise_op=tf.bitwise.bitwise_or, inputs=inputs, name=name)
 
 @tf.function(jit_compile=True)
-def bitwise_not(inputs):
-    return tf.bitwise.invert(inputs)
+def bitwise_xor(inputs, name: str = "xor"):
+    return bitwise_nary_op(bitwise_op=tf.bitwise.bitwise_xor, inputs=inputs, name=name)
 
 @tf.function(jit_compile=True)
-def bitwise_nand(inputs):
-    return bitwise_not(bitwise_and(inputs))
+def bitwise_not(inputs, name: str = "not"):
+    return tf.bitwise.invert(x=inputs, name=name)
 
 @tf.function(jit_compile=True)
-def bitwise_nor(inputs):
-    return bitwise_not(bitwise_or(inputs))
+def bitwise_nand(inputs, name: str = "nand"):
+    return bitwise_not(bitwise_and(inputs=inputs,name=name))
 
 @tf.function(jit_compile=True)
-def bitwise_xnor(inputs):
-    return bitwise_not(bitwise_xor(inputs))
+def bitwise_nor(inputs, name: str = "nor"):
+    return bitwise_not(bitwise_or(inputs=inputs,name=name))
+
+@tf.function(jit_compile=True)
+def bitwise_xnor(inputs, name: str = "xnor"):
+    return bitwise_not(bitwise_xor(inputs=inputs,name=name))
