@@ -2,7 +2,6 @@ import timeit
 
 import tensorflow as tf
 
-from pracciolini.grammar.canopy.module.bitwise import bitwise_xor, bitwise_or, bitwise_and, bitwise_xnor, bitwise_not
 from pracciolini.grammar.canopy.module.sampler import Sampler
 from pracciolini.grammar.canopy.sampler.sizer import BatchSampleSizeOptimizer
 
@@ -108,6 +107,12 @@ class LogicTreeBroadcastSampler(Sampler):
         return output_packed_bits_
 
     @tf.function(jit_compile=True)
+    def eval_fn(self, fn, probs, seed=372):
+        input_packed_bits_ = self._generate_bernoulli_broadcast_no_batch(probs=probs, seed=seed,)
+        output_packed_bits_ = fn(input_packed_bits_)
+        return output_packed_bits_
+
+    @tf.function(jit_compile=True)
     def count(self, probs, seed=372):
         input_packed_bits_ = self._generate_bernoulli_broadcast_no_batch(probs=probs, seed=seed,)
         output_packed_bits_ = self._logic_fn(input_packed_bits_)
@@ -138,67 +143,106 @@ class LogicTreeBroadcastSampler(Sampler):
         p05_, p95_ = self._tally(means_)
         return p05_, means_, p95_
 
+    def _get_save_signatures(self):
+        """
+        Helper method to generate the signatures dictionary required for saving the model.
+        Returns:
+            dict: Signatures mapping method names to concrete functions.
+        """
+        # Define input specifications
+        probs_spec = tf.TensorSpec(shape=[self._num_inputs], dtype=self._sampler_dtype, name='probs')
+        seed_spec = tf.TensorSpec(shape=[], dtype=tf.int32, name='seed')
+        samples_spec = tf.TensorSpec(shape=[self._num_outputs, self._batch_size, self._sample_size],
+                                     dtype=self._bitpack_dtype, name='samples')
 
-if __name__ == "__main__":
-    @tf.function(jit_compile=True)
-    def some_logic_expression(inputs):
-        # input_shape = [batch_size, num_events, sample_size]
-        # print(inputs.shape)
-        g1 = tf.bitwise.bitwise_or(inputs[0, :, :], inputs[3, :, :])
-        g2 = tf.bitwise.bitwise_xor(inputs[4, :, :], g1)
-        g3 = tf.bitwise.bitwise_and(g1, g2)
-        outputs = g3
-        # output_shape = [batch_size, sample_size] (for a single output)
-        # to be
-        return outputs
+        # Generate concrete functions for the methods to save
+        generate_fn = self.generate.get_concrete_function(probs=probs_spec, seed=seed_spec)
+        eval_fn = self.eval.get_concrete_function(probs=probs_spec, seed=seed_spec)
+        count_fn = self.count.get_concrete_function(probs=probs_spec, seed=seed_spec)
+        expectation_fn = self.expectation.get_concrete_function(probs=probs_spec, seed=seed_spec)
+        tally_fn = self.tally.get_concrete_function(probs=probs_spec, seed=seed_spec)
+        tally_from_samples_fn = self.tally_from_samples.get_concrete_function(samples=samples_spec)
 
+        # Return the signatures dictionary
+        signatures = {
+            'generate': generate_fn,
+            'eval': eval_fn,
+            'count': count_fn,
+            'expectation': expectation_fn,
+            'tally': tally_fn,
+            'tally_from_samples': tally_from_samples_fn,
+        }
+        return signatures
 
-    #num_events = 1024
-
-    @tf.function(jit_compile=True)
-    def my_logic_expression(inputs):
-        xor_1 = tf.bitwise.bitwise_xor(bitwise_xor(inputs), bitwise_xnor(inputs))
-        xnor_1 = tf.bitwise.bitwise_xor(bitwise_xnor(inputs), bitwise_xor(inputs))
-        return tf.bitwise.bitwise_xor(bitwise_not(xor_1), bitwise_not(xnor_1))
-
-
-    num_events = 2
-    sampler_dtype = tf.float32
-    bitpack_dtype = tf.uint8
-    optimizer = BatchSampleSizeOptimizer(
-        num_events=num_events,
-        max_bytes=int(1 * 2 ** 32),  # 1.8 times 4 GiB
-        sampled_bits_per_event_range=(1e6, None),
-        sampler_dtype=sampler_dtype,
-        bitpack_dtype=bitpack_dtype,
-        batch_size_range=(1, None),
-        sample_size_range=(1, None),
-        total_batches_range=(1, None),
-        max_iterations=10000,
-        tolerance=1e-8,
-    )
-
-    input_probs = (tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32))
-
-    optimizer.optimize()
-    sample_sizer = optimizer.get_results()
-
-    sampler = LogicTreeBroadcastSampler(
-        logic_fn=bitwise_xor,
-        num_inputs=sample_sizer['num_events'],
-        num_outputs=1,
-        num_batches=sample_sizer['total_batches'],
-        batch_size=sample_sizer['batch_size'],
-        sample_size=sample_sizer['sample_size'],
-        bitpack_dtype=tf.uint8,
-        sampler_dtype=tf.float32,
-        acc_dtype=tf.float32
-    )
-
-    count = 1
-    t = timeit.Timer(lambda: sampler.tally(input_probs))
-    times = t.timeit(number=count)
-    print(f"total_time (s): {times}")
-    print(f"avg_time (s): {times / float(count)}")
-    print(sampler.eval(input_probs))
-    print(sampler.eval(input_probs).shape)
+# if __name__ == "__main__":
+#     @tf.function(jit_compile=True)
+#     def some_logic_expression(inputs):
+#         # input_shape = [batch_size, num_events, sample_size]
+#         # print(inputs.shape)
+#         g1 = tf.bitwise.bitwise_or(inputs[0, :, :], inputs[3, :, :])
+#         g2 = tf.bitwise.bitwise_xor(inputs[4, :, :], g1)
+#         g3 = tf.bitwise.bitwise_and(g1, g2)
+#         outputs = g3
+#         # output_shape = [batch_size, sample_size] (for a single output)
+#         # to be
+#         return outputs
+#
+#
+#     #num_events = 1024
+#
+#     # @tf.function(jit_compile=True)
+#     # def my_logic_expression(inputs):
+#     #     xor_1 = tf.bitwise.bitwise_xor(bitwise_xor(inputs), bitwise_xnor(inputs))
+#     #     xnor_1 = tf.bitwise.bitwise_xor(bitwise_xnor(inputs), bitwise_xor(inputs))
+#     #     return tf.bitwise.bitwise_xor(bitwise_not(xor_1), bitwise_not(xnor_1))
+#
+#
+#     num_events = 8192
+#     sampler_dtype = tf.float32
+#     bitpack_dtype = tf.uint8
+#     optimizer = BatchSampleSizeOptimizer(
+#         num_events=num_events,
+#         max_bytes=int(1.5 * 2 ** 32),  # 1.8 times 4 GiB
+#         sampled_bits_per_event_range=(1e6, None),
+#         sampler_dtype=sampler_dtype,
+#         bitpack_dtype=bitpack_dtype,
+#         batch_size_range=(1, None),
+#         sample_size_range=(1, None),
+#         total_batches_range=(1, None),
+#         max_iterations=10000,
+#         tolerance=1e-8,
+#     )
+#
+#     input_probs = (tf.constant([1.0 / (x + 2.0) for x in range(num_events)], dtype=tf.float32))
+#
+#     optimizer.optimize()
+#     sample_sizer = optimizer.get_results()
+#
+#     sampler = LogicTreeBroadcastSampler(
+#         logic_fn=bitwise_xor,
+#         num_inputs=sample_sizer['num_events'],
+#         num_outputs=1,
+#         num_batches=sample_sizer['total_batches'],
+#         batch_size=sample_sizer['batch_size'],
+#         sample_size=sample_sizer['sample_size'],
+#         bitpack_dtype=tf.uint8,
+#         sampler_dtype=tf.float32,
+#         acc_dtype=tf.float32
+#     )
+#
+#     tf.saved_model.save(sampler, 'saved_logic_tree_sampler')
+#
+#     count = 1
+#     t = timeit.Timer(lambda: sampler.tally(input_probs))
+#     times = t.timeit(number=count)
+#     print(f"total_time (s): {times}")
+#     print(f"avg_time (s): {times / float(count)}")
+#     print(sampler.eval(input_probs))
+#     print(sampler.eval(input_probs).shape)
+#
+#     # Load the sampler instance back
+#     restored_sampler = tf.saved_model.load('saved_logic_tree_sampler')
+#
+#     # Use the restored sampler
+#     result = restored_sampler.tally(input_probs)
+#     print(result)
