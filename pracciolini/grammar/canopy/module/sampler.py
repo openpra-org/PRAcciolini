@@ -1,6 +1,5 @@
-from typing import Tuple, List
-
 import tensorflow as tf
+from typing import Tuple, List
 
 
 class Sampler(tf.Module):
@@ -9,7 +8,7 @@ class Sampler(tf.Module):
         super().__init__(name)
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _mse_loss(y_true: tf.Tensor, y_pred: tf.Tensor, dtype: tf.DType = tf.float64) -> tf.Tensor:
         """
         Custom Mean Squared Error loss function that operates in float64 precision.
@@ -27,12 +26,12 @@ class Sampler(tf.Module):
         return loss
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _compute_bits_in_dtype(tensor_type: tf.DType):
         return tf.dtypes.as_dtype(tensor_type).size * 8
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _compute_sample_shape(probs: tf.Tensor,  # [batch_size, num_events].
                               n_sample_packs_per_probability: tf.int32,
                               bitpack_dtype: tf.DType,
@@ -55,7 +54,7 @@ class Sampler(tf.Module):
         return sample_shape, samples_reshaped
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _compute_bit_positions(bitpack_dtype: tf.DType):
         num_bits = Sampler._compute_bits_in_dtype(bitpack_dtype)
         positions = tf.range(num_bits, dtype=tf.int32)
@@ -64,13 +63,14 @@ class Sampler(tf.Module):
         return positions
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _generate_bernoulli(
+            rng: tf.random.Generator,
             probs: tf.Tensor,
             n_sample_packs_per_probability: tf.int32,
             bitpack_dtype: tf.DType,
             dtype: tf.DType = tf.float64,
-            seed: int = None,
+            name: str = None
     ) -> tf.Tensor:
         """
         Generates bit-packed Bernoulli random variables based on input probabilities.
@@ -80,7 +80,6 @@ class Sampler(tf.Module):
             n_sample_packs_per_probability (int): Number of sample packs to generate per probability.
             bitpack_dtype (tf.DType): Data type for bit-packing (e.g., tf.uint8).
             dtype (tf.DType, optional): Data type for sampling. Defaults to tf.float64.
-            seed (int, optional): Random seed. Defaults to None.
 
         Returns:
             tf.Tensor: Bit-packed tensor of Bernoulli samples with shape [num_events, batch_size].
@@ -93,9 +92,8 @@ class Sampler(tf.Module):
         # Prepare probabilities to match the shape of 'dist'
         probs_cast = tf.cast(probs, dtype=dtype)
         probs_expanded = tf.expand_dims(probs_cast, axis=-1)  # Shape: [num_events, batch_size, 1]
-
         # Generate uniform random values
-        dist = tf.random.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype)
+        dist = rng.uniform(shape=sample_shape, minval=0, maxval=1, dtype=dtype)
         # Generate Bernoulli samples
         samples = tf.cast(tf.math.less(x=dist, y=probs_expanded), dtype=bitpack_dtype)  # Shape: [num_events, batch_size, num_bits]
         # Reshape samples to prepare for bit-packing
@@ -106,13 +104,13 @@ class Sampler(tf.Module):
         # Shift bits accordingly
         shifted_bits = tf.bitwise.left_shift(samples_reshaped, positions)  # Same shape as samples_reshaped
         # Sum over bits to get packed integers
-        packed_bits = tf.reduce_sum(shifted_bits, axis=-1)  # Shape: [num_events, batch_size, n_sample_packs_per_probability]
+        packed_bits = tf.reduce_sum(shifted_bits, axis=-1, name=name)  # Shape: [num_events, batch_size, n_sample_packs_per_probability]
 
         # Return the packed bits
         return packed_bits  # Output tensor with shape [num_events, batch_size, n_sample_packs_per_probability]
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _count_one_bits(x: tf.Tensor, axis=None, dtype=tf.uint32) -> tf.Tensor:
         # sample_shape = [batch_size, num_events, n_sample_packs_per_probability].
         pop_counts = tf.raw_ops.PopulationCount(x=x)
@@ -120,7 +118,7 @@ class Sampler(tf.Module):
         return one_bits
 
     @staticmethod
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def _p95_ci(means: tf.Tensor, total: tf.Tensor, dtype=tf.float64) -> Tuple[tf.Tensor, tf.Tensor]:
         variance = means * (1 - means)
         std_err = tf.sqrt(variance / total)

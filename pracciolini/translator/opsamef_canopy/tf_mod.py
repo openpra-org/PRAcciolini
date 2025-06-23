@@ -1,35 +1,39 @@
 import os
+from collections import defaultdict
+
 import tensorflow as tf
 from lxml import etree
 from typing import Dict, List, Optional
 
-from pracciolini.grammar.canopy.module.bitwise import bitwise_and, bitwise_or, bitwise_not
+from pracciolini.grammar.canopy.module.bitwise import bitwise_and, bitwise_or, bitwise_xor, bitwise_xnor, bitwise_nand
 from pracciolini.grammar.canopy.module.sampler import Sampler
-from pracciolini.grammar.canopy.probability.monte_carlo import count_one_bits, count_bits
 
 
 # Node classes to represent the fault tree structure
 class Node:
-    def __init__(self, name: str):
+    def __init__(self, name: str, is_top: bool = False, level: int = -1):
         self.name = name
         self.output: Optional[tf.Tensor] = None  # To hold the TensorFlow tensor corresponding to this node
+        self.is_top: bool = is_top
+        self.level: int = level
 
 class Gate(Node):
     def __init__(self, name: str, gate_type: str, is_top: bool = True):
-        super().__init__(name=name)
+        super().__init__(name=name, is_top=is_top)
         self.gate_type = gate_type
         self.children: List[Gate | BasicEvent] = []
-        self.is_top = is_top
+        self.fn_op = None
 
 class BasicEvent(Node):
     def __init__(self, name: str, probability: float):
-        super().__init__(name)
+        super().__init__(name=name, is_top=False, level=0)
         self.probability = probability
-        self.parents: List[Gate] = []
 
     @property
     def children(self):
         return []
+
+
 
 # Function to parse the XML file and build the node graph
 def parse_fault_tree(xml_file_path: str) -> Dict[str, Gate | BasicEvent]:
@@ -80,6 +84,10 @@ def parse_fault_tree(xml_file_path: str) -> Dict[str, Gate | BasicEvent]:
             gate_xml_to_traverse = gate_xml
             if gate_node.gate_type == "nand" or gate_node.gate_type == "nor" or gate_node.gate_type == "xnor":
                 gate_xml_to_traverse = gate_xml[0]
+            elif gate_node.gate_type == "basic-event":
+                print(gate_node, gate_name, gate_xml)
+            elif gate_node.gate_type == "gate": # just a reference to another gate
+                print(gate_node, gate_name, gate_xml)
             # There should be only one child element representing the gate type
             for elem in gate_xml_to_traverse:
                 # Parse the children of the gate
@@ -132,74 +140,144 @@ def topological_sort(nodes_dict: Dict[str, Gate | BasicEvent]) -> List[Gate | Ba
     return list(reversed(sorted_nodes))  # Reverse to get the correct order
 
 # Function to generate Bernoulli samples for basic events
-def generate_basic_event_samples(probabilities: List[float], batch_size: int, sample_size: int, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8) -> tf.Tensor:
+#@tf.function(jit_compile=True)
+def generate_basic_event_samples(rng:tf.random.Generator, probabilities: List[float], batch_size: int, sample_size: int, sampler_dtype=tf.float32, bitpack_dtype=tf.uint8) -> tf.Tensor:
     # Create a tensor of probabilities with shape [num_events, batch_size, sample_size]
     probs = tf.constant(probabilities, dtype=sampler_dtype)
     num_events = tf.shape(probs)[0]
     probs_broadcast = tf.broadcast_to(tf.expand_dims(probs, axis=1), [num_events, batch_size])
-    samples = Sampler._generate_bernoulli(probs=probs_broadcast,
+    samples = Sampler._generate_bernoulli(rng=rng,
+                                          probs=probs_broadcast,
                                           n_sample_packs_per_probability=sample_size,
                                           bitpack_dtype=bitpack_dtype,
                                           dtype=sampler_dtype)
     return samples  # Shape: [num_events, batch_size, sample_size]
 
-# Function to apply gate operations
-def apply_gate_operation(gate_type: str, inputs: List[tf.Tensor], name: str) -> tf.Tensor:
+def op_for_gate_type(gate_type: str):
     if gate_type == "and":
-        return bitwise_and(inputs, name=name)
+        return bitwise_and
+    elif gate_type == "or":
+        return bitwise_or
+    elif gate_type == "not":
+        return bitwise_or
+    elif gate_type == "xor":
+        return bitwise_xor
+    elif gate_type == "xnor":
+        return bitwise_xnor
+    elif gate_type == "nand":
+        return bitwise_nand
+    return bitwise_or
 
-    if gate_type == "or" or gate_type == "atleast":
-        return bitwise_or(inputs, name=name)
-
-    return bitwise_not(inputs, name=name)
-
-# Function to build the TensorFlow computation graph
-def build_tensorflow_graph(sorted_nodes: List[Node], batch_size: int, sample_size: int) -> tf.Tensor:
+def presort_event_nodes(sorted_nodes: List[Node]):
     # Initialize dictionaries to hold outputs
-    node_outputs: Dict[str, tf.Tensor] = {}
+    # node_outputs: Dict[str, tf.Tensor] = {}
     basic_event_probs: List[float] = []
-    basic_event_indices: Dict[str, int] = {}
+    basic_event_probability_indices: Dict[str, int] = {}
 
-    # First pass: collect basic event probabilities
-    for node in sorted_nodes:
+    sorted_basic_events: List[BasicEvent] = []
+    sorted_gates: List[Gate] = []
+
+    sorted_tops: List[Node] = []
+
+    gates_by_level = defaultdict(list)
+
+    # First pass: collect basic event probabilities, and set gate op type
+    for node in reversed(sorted_nodes):
         if isinstance(node, BasicEvent):
-            if node.name not in basic_event_indices:
-                basic_event_indices[node.name] = len(basic_event_probs)
+            sorted_basic_events.append(node)
+            if node.name not in basic_event_probability_indices:
+                basic_event_probability_indices[node.name] = len(basic_event_probs)
                 basic_event_probs.append(node.probability)
+        elif isinstance(node, Gate):
+            if len(node.children) == 0:
+                print("empty node!", node.name)
+            node.level = 1 + max(child.level for child in node.children)
+            node.fn_op = op_for_gate_type(node.gate_type)
+            sorted_gates.append(node)
+            # finally, add this to node it's level
+            gates_by_level[node.level].append(node)
+        if node.is_top:
+            sorted_tops.append(node)
+
+
+    presorted_nodes = {
+        "nodes": {
+            "sorted": reversed(sorted_nodes),
+            "tops": sorted_tops,
+            "by_level": gates_by_level,
+        },
+        "gates": {
+            "sorted": sorted_gates,
+            "by_level": gates_by_level,
+        },
+        "basic_events": {
+            "sorted": sorted_basic_events,
+            "probabilities": basic_event_probs,
+            "probability_indices": basic_event_probability_indices,
+        },
+    }
+
+    print(f"tops: {len(sorted_tops)}, gates: {len(sorted_gates)}, basic events: {len(sorted_basic_events)}")
+    print(f"total_levels:{len(gates_by_level.keys())}")
+    for key, value in gates_by_level.items():
+        print(f"level {key}: {len(value)}, num_inputs: {sum([len(node.children) for node in value])}, {[node.name for node in value]}")
+    return presorted_nodes
+
+#@tf.function
+def build_tf_graph(presorted_nodes, rng: tf.random.Generator, batch_size: tf.int32, sample_size: tf.int32):
+
+    basic_event_probs: List[float] = presorted_nodes["basic_events"]["probabilities"]
 
     # Generate samples for all basic events at once
-    basic_event_samples = generate_basic_event_samples(basic_event_probs, batch_size, sample_size)
+    basic_event_samples = generate_basic_event_samples(rng=rng,
+                                                       probabilities=basic_event_probs,
+                                                       batch_size=batch_size,
+                                                       sample_size=sample_size)
+
+    sorted_basic_events: List[BasicEvent] = presorted_nodes["basic_events"]["sorted"]
+    basic_event_probability_indices: Dict[str, int] = presorted_nodes["basic_events"]["probability_indices"]
+
     # Map basic event outputs
-    for node in sorted_nodes:
-        if isinstance(node, BasicEvent):
-            index = basic_event_indices[node.name]
-            node.output = basic_event_samples[index]
-            node_outputs[node.name] = node.output
+    for basic_event in sorted_basic_events:
+        index = basic_event_probability_indices[basic_event.name]
+        basic_event.output = basic_event_samples[index]
 
-    # Second pass: process gates
-    for node in reversed(sorted_nodes):
-        if isinstance(node, Gate):
-            if node.output is not None:
-                raise ValueError(f"Node {node.name} output is already defined!")
-            child_outputs = [child.output for child in node.children]
-            if any(output is None for output in child_outputs):
-                raise ValueError(f"Node '{node.name}' has children with undefined outputs.")
-            if len(child_outputs) == 1: # just one child, propagate forward
-                node.output = child_outputs[0]
-            else:
-                node.output = apply_gate_operation(node.gate_type, tf.stack(child_outputs, axis=0), node.name)
-            node_outputs[node.name] = node.output
+    # Process gates grouped by level
+    level_to_gates = presorted_nodes["gates"]["by_level"]
 
-    # Return the outputs of the top nodes
-    top_nodes = [node for node in sorted_nodes if getattr(node, 'is_top', False)]
-    if not top_nodes:
-        raise ValueError("No top node found in the fault tree.")
-    outputs = [node.output for node in top_nodes]
-    if len(outputs) == 1:
-        return outputs[0]
-    else:
-        # If multiple top nodes, return a tuple of outputs
-        return tuple(outputs)
+    for level in sorted(level_to_gates.keys()):
+        gates_in_level = level_to_gates[level]
+        max_num_inputs = max(len(gate.children) for gate in gates_in_level)
+        padded_inputs = []
+        gate_functions = []
+        for gate in gates_in_level:
+            child_outputs = [child.output for child in gate.children]
+            # Pad inputs if necessary
+            if len(child_outputs) < max_num_inputs:
+                padding = [tf.zeros_like(child_outputs[0])] * (max_num_inputs - len(child_outputs))
+                child_outputs += padding
+            # Stack inputs
+            stacked_inputs = tf.stack(child_outputs, axis=0)  # Shape: [max_num_inputs, batch_size, sample_size]
+            padded_inputs.append(stacked_inputs)
+            gate_functions.append(gate.fn_op)
+        # Stack all inputs for gates at this level
+        all_inputs = tf.stack(padded_inputs, axis=0)  # Shape: [num_gates, max_num_inputs, batch_size, sample_size]
+        # Process all gates
+        for i in range(len(gates_in_level)):
+            gate = gates_in_level[i]
+            gate_inputs = all_inputs[i]
+            gate_output = gate_functions[i](inputs=gate_inputs, name=gate.name)
+            gate.output = gate_output
+
+    # # apply the tensorflow bitwise op
+    # sorted_gates: List[Gate] = presorted_nodes["gates"]["sorted"]
+    # for gate in sorted_gates:
+    #     child_outputs = [child.output for child in gate.children]
+    #     gate.output = gate.fn_op(inputs=tf.stack(child_outputs, axis=0), name=gate.name)
+
+    sorted_tops: List[Node] = presorted_nodes["nodes"]["tops"]
+    outputs = tf.stack([top.output for top in sorted_tops], axis=0)
+    return outputs
 
 # Main function to tie everything together
 def main():
@@ -212,6 +290,9 @@ def main():
     # parser.add_argument("--sample_size", type=int, default=1024, help="Sample size for each batch")
     # args = parser.parse_args()
 
+    #tf.config.enable_resource_variables()
+    #tf.config.run_functions_eagerly(False)
+    #tf.compat.v1.disable_eager_execution()
     opts = tf.config.optimizer.get_experimental_options()
     opts['layout_optimizer'] = True
     opts['constant_folding'] = True
@@ -231,13 +312,14 @@ def main():
     opts['auto_parallel'] = True
     tf.config.optimizer.set_experimental_options(opts)
 
-    xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/demo/gas_leak.xml"
-    xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/demo/gas_leak.xml"
-    xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/synthetic-openpsa-models/models/c7-P_0.35-0.9/ft_c7-P_0.35-0.9_100.xml"
-    #xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/generic-openpsa-models/models/Aralia/das9701.xml"
+    #xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/demo/gas_leak.xml"
+    #xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/generic-pwr-openpsa-model/models/converted_SLOCA_et_Grp-1_24-02-26_16-01-54.xml"
+    xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/synthetic-openpsa-models/models/c1-P_0.01-0.05/ft_c1-P_0.01-0.05_5000.xml"
+    #xml_file_path = "/home/earthperson/projects/pracciolini/tests/fixtures/openpsa/xml/opsa-mef/generic-openpsa-models/models/Aralia/edfpa14b.xml"
 
-    batch_size = 64
-    sample_size = 64
+    GLOBAL_RNG = tf.random.Generator.from_non_deterministic_state()
+    GLOBAL_BATCH_SIZE = 2
+    GLOBAL_SAMPLE_SIZE = 2**10
 
     # Check if the XML file exists
     if not os.path.isfile(xml_file_path):
@@ -246,15 +328,19 @@ def main():
     # Parse the XML and build the node graph
     nodes_dict = parse_fault_tree(xml_file_path)
     sorted_nodes = topological_sort(nodes_dict)
-    print("sorted nodes", [node.name for node in sorted_nodes])
+    presorted_nodes = presort_event_nodes(sorted_nodes=sorted_nodes)
 
-    # Build and execute the TensorFlow graph
-    @tf.function(jit_compile=False)
+    @tf.function(jit_compile=True)
     def logic_function(batch_size: int, sample_size: int) -> tf.Tensor:
-        outputs = build_tensorflow_graph(sorted_nodes, batch_size, sample_size)
-        pop_counts = tf.raw_ops.PopulationCount(x=outputs)
+        graph_outputs = build_tf_graph(presorted_nodes=presorted_nodes, rng=GLOBAL_RNG, batch_size=batch_size, sample_size=sample_size)
+        pop_counts = tf.raw_ops.PopulationCount(x=graph_outputs)
         one_bits = tf.reduce_sum(input_tensor=tf.cast(x=pop_counts, dtype=tf.float64), axis=None)
-        return one_bits/(tf.reduce_prod(tf.cast(outputs.shape, dtype=tf.float64)) * outputs.dtype.size * 8.0)
+        return one_bits/(tf.reduce_prod(tf.cast(graph_outputs.shape, dtype=tf.float64)) * graph_outputs.dtype.size * 8.0)
+
+    for _ in tf.range(10):
+        output_ = logic_function(batch_size=GLOBAL_BATCH_SIZE, sample_size=GLOBAL_SAMPLE_SIZE)
+        print(output_)
+    exit(0)
 
     logdir = "/home/earthperson/projects/pracciolini/logs"
     profile_dir = f"{logdir}/profiler"
@@ -269,7 +355,7 @@ def main():
     # final_output2 = sampler.tally_from_samples(bitwise_or(sampler.generate(input_probs)))
 
     # Execute the function
-    for _ in tf.range(1):
+    for _ in tf.range(10):
         output = logic_function(batch_size=batch_size, sample_size=sample_size)
         print(output)
 
@@ -281,19 +367,22 @@ def main():
             step=0,
         )
 
-    exit(0)
-    # Process and display the results
-    # For demonstration, we can compute the probability of the top event occurring
-    # by calculating the mean over the batches and samples
-    if isinstance(output, tuple):
-        # Multiple top nodes
-        for i, out in enumerate(output):
-            probability = tf.reduce_mean(tf.cast(out, tf.float32)).numpy()
-            print(f"Probability of top event {i}: {probability}")
-    else:
-        # Single top node
-        probability = tf.reduce_mean(tf.cast(output, tf.float32)).numpy()
-        print(f"Probability of top event: {probability}")
-
 if __name__ == '__main__':
+    os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+
+    TF_XLA_FLAGS = "--tf_xla_enable_lazy_compilation=false --tf_xla_auto_jit=2"
+    TF_XLA_FLAGS += " --tf_mlir_enable_mlir_bridge=true --tf_mlir_enable_convert_control_to_data_outputs_pass=true --tf_mlir_enable_multiple_local_cpu_devices=true"
+    TF_XLA_FLAGS += " --tf_xla_deterministic_cluster_names=true --tf_xla_disable_strict_signature_checks=true"
+    TF_XLA_FLAGS += " --tf_xla_persistent_cache_directory='./xla/cache/' --tf_xla_persistent_cache_read_only=false"
+
+    os.environ["TF_XLA_FLAGS"] = TF_XLA_FLAGS
+
+    # TF_XLA_FLAGS="--tf_xla_always_defer_compilation=true"
+    # TF_XLA_FLAGS = "--tf_xla_enable_lazy_compilation=false"
+    # # TF_XLA_FLAGS="$TF_XLA_FLAGS --tf_xla_enable_lazy_compilation=true --tf_xla_auto_jit=2  --tf_xla_compile_on_demand=true"
+    # TF_XLA_FLAGS = "$TF_XLA_FLAGS --tf_xla_print_cluster_outputs=true"
+    # TF_XLA_FLAGS = "$TF_XLA_FLAGS --tf_mlir_enable_mlir_bridge=true --tf_mlir_enable_convert_control_to_data_outputs_pass=true --tf_mlir_enable_multiple_local_cpu_devices=true"
+    # TF_XLA_FLAGS = "$TF_XLA_FLAGS --tf_xla_deterministic_cluster_names=true --tf_xla_disable_strict_signature_checks=true"
+    # TF_XLA_FLAGS = "$TF_XLA_FLAGS --tf_xla_persistent_cache_directory='./xla/cache/' --tf_xla_persistent_cache_read_only=false"
+
     main()

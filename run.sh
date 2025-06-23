@@ -3,8 +3,10 @@ set -a
 source .env
 set +a
 
-mkdir -p /tmp/xla_cache && chown 1000:1000 /tmp/xla_cache
+mkdir -p ./xla/cache && chown -R 1000:1000 ./xla
 
 #python3 tests/grammar/canopy/model/test_construct_subgraph.py
 #python3 pracciolini/grammar/canopy/module/broadcast_sampler.py
-python3 pracciolini/translator/opsamef_canopy/tf_module.py
+#python3 pracciolini/translator/opsamef_canopy/tf_module.py
+time python3 pracciolini/translator/opsamef_canopy/tf_mod.py
+time python3 pracciolini/translator/opsamef_canopy/tf_mod.py

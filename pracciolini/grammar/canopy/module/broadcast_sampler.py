@@ -96,7 +96,7 @@ class LogicTreeBroadcastSampler(Sampler):
             jit_compile=True
         )
 
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def generate(self, probs, seed=372):
         return self._generate_bernoulli_broadcast_no_batch(probs=probs, seed=seed,)
 
@@ -106,7 +106,7 @@ class LogicTreeBroadcastSampler(Sampler):
         output_packed_bits_ = self._logic_fn(input_packed_bits_)
         return output_packed_bits_
 
-    @tf.function(jit_compile=True)
+    #@tf.function(jit_compile=True)
     def eval_fn(self, fn, probs, seed=372):
         input_packed_bits_ = self._generate_bernoulli_broadcast_no_batch(probs=probs, seed=seed,)
         output_packed_bits_ = fn(input_packed_bits_)
