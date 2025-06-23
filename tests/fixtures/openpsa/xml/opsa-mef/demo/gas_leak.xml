@@ -139,71 +139,56 @@
 			</fork>
 		</initial-state>
 	</define-event-tree>
-	<define-fault-tree name="FT1">
-		<define-gate name="G1" role="private">
+    <define-fault-tree name="FT0">
+        <define-gate name="top-0b-3g" role="private">
 			<or>
-				<gate name="G2"/>
+                <gate name="or-2b-1g"/>
+                <gate name="or-nb-0g"/>
+                <gate name="and-2b-1g"/>
+			</or>
+		</define-gate>
+		<define-gate name="or-2b-1g" role="private">
+			<or>
+				<gate name="and-2b-1g"/>
+                <gate name="and-0b-1g"/>
+                <basic-event name="BE25"/>
+			</or>
+		</define-gate>
+        <define-gate name="or-nb-0g" role="private">
+			<or>
 				<basic-event name="BE10"/>
+                <basic-event name="BE11"/>
+                <basic-event name="BE12"/>
+                <basic-event name="BE13"/>
+                <basic-event name="BE14"/>
+                <basic-event name="BE15"/>
+                <basic-event name="BE16"/>
+                <basic-event name="BE17"/>
+                <basic-event name="BE18"/>
+                <basic-event name="BE19"/>
+                <basic-event name="BE20"/>
+                <basic-event name="BE21"/>
 			</or>
 		</define-gate>
-		<define-gate name="G2" role="private">
-			<atleast min="2">
-				<basic-event name="BE11"/>
-				<basic-event name="BE12"/>
-				<basic-event name="BE13"/>
-			</atleast>
-		</define-gate>
-	</define-fault-tree>
-	<define-fault-tree name="FT2">
-		<define-gate name="G3" role="private">
-			<or>
-				<gate name="G4"/>
-				<basic-event name="BE14"/>
-				<basic-event name="BE15"/>
-			</or>
-		</define-gate>
-		<define-gate name="G4" role="private">
+        <define-gate name="and-2b-1g" role="private">
 			<and>
-				<basic-event name="BE16"/>
-				<basic-event name="BE17"/>
-			</and>
-		</define-gate>
-	</define-fault-tree>
-	<define-fault-tree name="FT3">
-		<define-gate name="G5" role="private">
-			<or>
-				<gate name="G6"/>
-				<basic-event name="BE20"/>
-				<basic-event name="BE21"/>
-			</or>
-		</define-gate>
-		<define-gate name="G6" role="private">
-			<and>
-				<basic-event name="BE18"/>
-				<basic-event name="BE19"/>
-			</and>
-		</define-gate>
-	</define-fault-tree>
-	<define-fault-tree name="FT4">
-		<define-gate name="G7" role="private">
-			<or>
-				<gate name="G8"/>
-				<basic-event name="BE22"/>
 				<basic-event name="BE23"/>
-			</or>
+                <basic-event name="BE24"/>
+                <gate name="and-1b-0g"/>
+			</and>
 		</define-gate>
-		<define-gate name="G8" role="private">
+        <define-gate name="and-1b-0g" role="private">
 			<and>
-				<basic-event name="BE24"/>
-				<basic-event name="BE25"/>
+                <basic-event name="BE22"/>
+			</and>
+		</define-gate>
+        <define-gate name="and-0b-1g" role="private">
+			<and>
+                <gate name="and-1b-0g"/>
 			</and>
 		</define-gate>
 	</define-fault-tree>
 	<model-data>
-		<define-basic-event name="BE5">
-			<label>INIT-EV</label>
-			<float value="1.000000E+00"/>
-		</define-basic-event>
 		<define-basic-event name="BE10">
 			<label>CPU</label>
 			<float value="5.000000E-02"/>
