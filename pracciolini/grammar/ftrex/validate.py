@@ -1,3 +1,5 @@
+import os
+
 from antlr4 import FileStream, CommonTokenStream, ParseTreeVisitor
 from antlr4.error.ErrorListener import ErrorListener
 
@@ -31,7 +33,7 @@ class FtrexFtpValidationErrorListener(ErrorListener):
 
 
 @load("ftrex_ftp", ".ftp")
-def read_ftrex_ftp(file_path: str) -> ParseTreeVisitor:
+def read_ftrex_ftp(file_path: os.PathLike[str]) -> ftrex_ftpParser.File_Context | None:
     """
     Reads an FTP file and returns a parse tree.
 
@@ -44,7 +46,7 @@ def read_ftrex_ftp(file_path: str) -> ParseTreeVisitor:
 
     try:
         # Create an input stream from the file
-        input_stream = FileStream(file_path)
+        input_stream = FileStream(str(file_path))
 
         # Create a custom error listener to capture syntax errors
         error_listener = FtrexFtpValidationErrorListener()
@@ -65,18 +67,22 @@ def read_ftrex_ftp(file_path: str) -> ParseTreeVisitor:
 
         # Check for syntax errors and print them if found
         if error_listener.errors:
+            print(file_path)
             print(tree)
             print("Errors found during parsing:")
             for error in error_listener.errors:
                 print(error)
 
+            return None
+
         return tree
 
     except Exception as e:
         print(f"An error occurred during validation: {e}")
+        return None
 
 
-def validate_ftp_file(file_path: str) -> bool:
+def validate_ftp_file(file_path: os.PathLike[str]) -> bool:
     """
     Validates an FTP file by attempting to parse it.
 
@@ -87,9 +93,5 @@ def validate_ftp_file(file_path: str) -> bool:
         bool: True if the file is valid, False otherwise.
     """
 
-    try:
-        read_ftrex_ftp(file_path)
-        return True
-    except Exception as e:
-        print(f"An error occurred during validation: {e}")
-        return False
+    tree = read_ftrex_ftp(file_path)
+    return tree is not None

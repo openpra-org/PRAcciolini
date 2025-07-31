@@ -39,9 +39,10 @@ dependencies = [
     "lxml",
     "networkx",
     "pandas",
-    "tensorflow[and-cuda]",
-    "tensorflow-probability",
-    "tf-keras" # needed by tensorflow-probability
+    "pandas-stubs==2.3.0.250703",
+    "tensorflow-probability", # needed by tensorflow-probability
+    "tensorflow[and-cuda]>=2.19.0 ; sys_platform == 'linux'",
+    "tf-keras",
 ]
 
 [project.urls]
@@ -93,4 +94,9 @@ testpaths = [
 
 [tool.setuptools]
 packages = ["pracciolini"]
+
+[dependency-groups]
+dev = [
+    "ipython>=9.4.0",
+]
 

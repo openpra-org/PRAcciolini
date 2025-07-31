@@ -45,6 +45,69 @@ class ftrex_ftpListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ftrex_ftpParser#gateId.
+    def enterGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#gateId.
+    def exitGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#gateDef.
+    def enterGateDef(self, ctx:ftrex_ftpParser.GateDefContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#gateDef.
+    def exitGateDef(self, ctx:ftrex_ftpParser.GateDefContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#gateType.
+    def enterGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#gateType.
+    def exitGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#operands.
+    def enterOperands(self, ctx:ftrex_ftpParser.OperandsContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#operands.
+    def exitOperands(self, ctx:ftrex_ftpParser.OperandsContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#literal.
+    def enterLiteral(self, ctx:ftrex_ftpParser.LiteralContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#literal.
+    def exitLiteral(self, ctx:ftrex_ftpParser.LiteralContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#notEvent.
+    def enterNotEvent(self, ctx:ftrex_ftpParser.NotEventContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#notEvent.
+    def exitNotEvent(self, ctx:ftrex_ftpParser.NotEventContext):
+        pass
+
+
+    # Enter a parse tree produced by ftrex_ftpParser#event.
+    def enterEvent(self, ctx:ftrex_ftpParser.EventContext):
+        pass
+
+    # Exit a parse tree produced by ftrex_ftpParser#event.
+    def exitEvent(self, ctx:ftrex_ftpParser.EventContext):
+        pass
+
+
     # Enter a parse tree produced by ftrex_ftpParser#processSection.
     def enterProcessSection(self, ctx:ftrex_ftpParser.ProcessSectionContext):
         pass
@@ -90,39 +153,30 @@ class ftrex_ftpListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ftrex_ftpParser#gateId.
-    def enterGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+    # Enter a parse tree produced by ftrex_ftpParser#basicEvent.
+    def enterBasicEvent(self, ctx:ftrex_ftpParser.BasicEventContext):
         pass
 
-    # Exit a parse tree produced by ftrex_ftpParser#gateId.
-    def exitGateId(self, ctx:ftrex_ftpParser.GateIdContext):
-        pass
-
-
-    # Enter a parse tree produced by ftrex_ftpParser#gateType.
-    def enterGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
-        pass
-
-    # Exit a parse tree produced by ftrex_ftpParser#gateType.
-    def exitGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+    # Exit a parse tree produced by ftrex_ftpParser#basicEvent.
+    def exitBasicEvent(self, ctx:ftrex_ftpParser.BasicEventContext):
         pass
 
 
-    # Enter a parse tree produced by ftrex_ftpParser#childRef.
-    def enterChildRef(self, ctx:ftrex_ftpParser.ChildRefContext):
+    # Enter a parse tree produced by ftrex_ftpParser#basicEventID.
+    def enterBasicEventID(self, ctx:ftrex_ftpParser.BasicEventIDContext):
         pass
 
-    # Exit a parse tree produced by ftrex_ftpParser#childRef.
-    def exitChildRef(self, ctx:ftrex_ftpParser.ChildRefContext):
+    # Exit a parse tree produced by ftrex_ftpParser#basicEventID.
+    def exitBasicEventID(self, ctx:ftrex_ftpParser.BasicEventIDContext):
         pass
 
 
-    # Enter a parse tree produced by ftrex_ftpParser#childRefList.
-    def enterChildRefList(self, ctx:ftrex_ftpParser.ChildRefListContext):
+    # Enter a parse tree produced by ftrex_ftpParser#probability.
+    def enterProbability(self, ctx:ftrex_ftpParser.ProbabilityContext):
         pass
 
-    # Exit a parse tree produced by ftrex_ftpParser#childRefList.
-    def exitChildRefList(self, ctx:ftrex_ftpParser.ChildRefListContext):
+    # Exit a parse tree produced by ftrex_ftpParser#probability.
+    def exitProbability(self, ctx:ftrex_ftpParser.ProbabilityContext):
         pass
 
 

@@ -30,6 +30,41 @@ class ftrex_ftpVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by ftrex_ftpParser#gateId.
+    def visitGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ftrex_ftpParser#gateDef.
+    def visitGateDef(self, ctx:ftrex_ftpParser.GateDefContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ftrex_ftpParser#gateType.
+    def visitGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ftrex_ftpParser#operands.
+    def visitOperands(self, ctx:ftrex_ftpParser.OperandsContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ftrex_ftpParser#literal.
+    def visitLiteral(self, ctx:ftrex_ftpParser.LiteralContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ftrex_ftpParser#notEvent.
+    def visitNotEvent(self, ctx:ftrex_ftpParser.NotEventContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ftrex_ftpParser#event.
+    def visitEvent(self, ctx:ftrex_ftpParser.EventContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by ftrex_ftpParser#processSection.
     def visitProcessSection(self, ctx:ftrex_ftpParser.ProcessSectionContext):
         return self.visitChildren(ctx)
@@ -55,23 +90,18 @@ class ftrex_ftpVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ftrex_ftpParser#gateId.
-    def visitGateId(self, ctx:ftrex_ftpParser.GateIdContext):
+    # Visit a parse tree produced by ftrex_ftpParser#basicEvent.
+    def visitBasicEvent(self, ctx:ftrex_ftpParser.BasicEventContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ftrex_ftpParser#gateType.
-    def visitGateType(self, ctx:ftrex_ftpParser.GateTypeContext):
+    # Visit a parse tree produced by ftrex_ftpParser#basicEventID.
+    def visitBasicEventID(self, ctx:ftrex_ftpParser.BasicEventIDContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ftrex_ftpParser#childRef.
-    def visitChildRef(self, ctx:ftrex_ftpParser.ChildRefContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ftrex_ftpParser#childRefList.
-    def visitChildRefList(self, ctx:ftrex_ftpParser.ChildRefListContext):
+    # Visit a parse tree produced by ftrex_ftpParser#probability.
+    def visitProbability(self, ctx:ftrex_ftpParser.ProbabilityContext):
         return self.visitChildren(ctx)
 
 

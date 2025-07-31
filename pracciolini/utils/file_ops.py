@@ -105,7 +105,7 @@ class FileOps(object):
         return expanded_paths
 
     @staticmethod
-    def find_files_by_extension(root_dir: str, extension: str) -> List[str]:
+    def find_files_by_extension(root_dir: os.PathLike | str, extension: str) -> List[str]:
         """
         Recursively searches the specified directory and its subdirectories
         for files that have the given file extension.

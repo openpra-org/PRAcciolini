@@ -33,6 +33,7 @@ def validate_rng_xml(xml_doc: etree.ElementTree, schema_doc: etree.ElementTree) 
     except etree.RelaxNGParseError as e:
         print(f"Error parsing Relax NG schema: {e}")
         return False
+
     except Exception as e:
         print(f"An error occurred during validation: {e}")
         return False
