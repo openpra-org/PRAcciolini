@@ -4,7 +4,6 @@ from lxml.etree import ElementTree
 from lxml import etree
 import pandas as pd
 
-from pracciolini.core.decorators import translation
 
 from pracciolini.grammar.ftrex.validate import read_ftrex_ftp
 from pracciolini.grammar.openpsa.validate import validate_openpsa_input_xml

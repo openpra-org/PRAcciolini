@@ -2,7 +2,7 @@ import os
 import pathlib
 import unittest
 
-from pracciolini.translator.ftrex_opsamef.ftrex_opsamef import ftrex_ftp_to_opsamef_xml, ftrex_csv_to_opsamef_xml
+from pracciolini.translator.ftrex_opsamef.ftrex_opsamef import ftrex_ftp_to_opsamef_xml
 from pracciolini.utils.file_ops import FileOps
 
 
