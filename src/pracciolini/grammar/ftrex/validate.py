@@ -44,42 +44,37 @@ def read_ftrex_ftp(file_path: os.PathLike[str]) -> ftrex_ftpParser.File_Context 
         ParseTreeVisitor: The parse tree representing the FTP file's structure.
     """
 
-    try:
-        # Create an input stream from the file
-        input_stream = FileStream(str(file_path))
+    # Create an input stream from the file
+    input_stream = FileStream(str(file_path))
 
-        # Create a custom error listener to capture syntax errors
-        error_listener = FtrexFtpValidationErrorListener()
+    # Create a custom error listener to capture syntax errors
+    error_listener = FtrexFtpValidationErrorListener()
 
-        # Create a lexer and add the error listener
-        lexer = ftrex_ftpLexer(input_stream)
-        lexer.addErrorListener(error_listener)
+    # Create a lexer and add the error listener
+    lexer = ftrex_ftpLexer(input_stream)
+    lexer.addErrorListener(error_listener)
 
-        # Tokenize the input stream
-        stream = CommonTokenStream(lexer)
+    # Tokenize the input stream
+    stream = CommonTokenStream(lexer)
 
-        # Create a parser and add the error listener
-        parser = ftrex_ftpParser(stream)
-        parser.addErrorListener(error_listener)
+    # Create a parser and add the error listener
+    parser = ftrex_ftpParser(stream)
+    parser.addErrorListener(error_listener)
 
-        # Parse the file starting from the 'file_' rule
-        tree = parser.file_()
+    # Parse the file starting from the 'file_' rule
+    tree = parser.file_()
 
-        # Check for syntax errors and print them if found
-        if error_listener.errors:
-            print(file_path)
-            print(tree)
-            print("Errors found during parsing:")
-            for error in error_listener.errors:
-                print(error)
+    # Check for syntax errors and print them if found
+    if error_listener.errors:
+        print(file_path)
+        print(tree)
+        print("Errors found during parsing:")
+        for error in error_listener.errors:
+            print(error)
 
-            return None
-
-        return tree
-
-    except Exception as e:
-        print(f"An error occurred during validation: {e}")
         return None
+
+    return tree
 
 
 def validate_ftp_file(file_path: os.PathLike[str]) -> bool:

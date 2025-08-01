@@ -122,7 +122,7 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
             if (section := self.visitSection(section_ctx)) is not None:
                 opsamef.append(section)
 
-        check_referenced_are_defined(self._event_def_counter, self._event_ref_counter)
+        check_referenced_are_defined(self._event_ref_counter, self._event_def_counter)
 
         return opsamef
 
@@ -169,16 +169,31 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
                 replacement: str = bool_expr[0].attrib['name']
                 gates_removed[removed] = replacement
 
-                label_removed: str = gate[0].text
-                warnings.warn(f"Removing gate `{removed}` ({label_removed}), "
-                              f"references replaced by `{replacement}`", UnaryGateWarning)
+                self._event_def_counter[removed] -= 1
+                self._event_ref_counter[replacement] -= 1
+
+                # label_removed: str = gate[0].text
+                # warnings.warn(f"Removing gate `{removed}` ({label_removed}), "
+                #               f"references replaced by `{replacement}`", UnaryGateWarning)
             else:
                 fault_tree.append(gate)
 
         # Replace event references of removed gates
         for event_ref in fault_tree.iter('event'):
-            if (replaced := event_ref.attrib['name']) in gates_removed:
-                event_ref.attrib['name'] = gates_removed[replaced]
+            if (removed := event_ref.attrib['name']) in gates_removed:
+                self._event_ref_counter[removed] -= 1
+
+                replacement: str = gates_removed[removed]
+                while replacement in gates_removed:
+                    replacement = gates_removed[replacement]
+
+                gates_removed[removed] = replacement
+                event_ref.attrib['name'] = replacement
+                self._event_ref_counter[replacement] += 1
+
+        for key in gates_removed:
+            assert self._event_ref_counter[key] == 0, f'{key} : {self._event_ref_counter[key]}'
+            assert self._event_def_counter[key] == 0, f'{key} : {self._event_def_counter[key]}'
 
         return fault_tree
 
@@ -399,6 +414,7 @@ class OpsaMefXmlVisitor(ftrex_ftpVisitor):
 
         self._event_def_counter[name] += 1
         if (n := self._event_def_counter[name]) > 1:
+            self._event_def_counter[name] -= 1
             warnings.warn(
                 f"{event_type} `{name}` ({orig_id}) is redefined ({n}) on line {event_id.getSymbol().line}: skipping"
             )

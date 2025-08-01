@@ -1,3 +1,5 @@
+import pathlib
+
 from lxml.etree import ElementTree
 from lxml import etree
 import pandas as pd
@@ -16,19 +18,15 @@ __all__ = [
 
 
 # @translation('filepath_ftrex_ftp', 'ft_opsamef_xml')
-def ftrex_ftp_to_opsamef_xml(file_path: str, validate: bool = True) -> ElementTree | None:
-    xml_doc: ElementTree | None = None
-    try:
-        parse_tree = read_ftrex_ftp(file_path)
-        visitor = OpsaMefXmlVisitor()
-        xml_doc = visitor.visit(parse_tree)
-
-        if validate:
-            validate_openpsa_input_xml(xml_doc)
-    except Exception as e:
-        print(f"An error occurred during translation: {e}")
-
+def ftrex_ftp_to_opsamef_xml(file_path: pathlib.Path, validate: bool = True) -> ElementTree | None:
+    parse_tree = read_ftrex_ftp(file_path)
+    visitor = OpsaMefXmlVisitor()
+    xml_doc = visitor.visit(parse_tree)
     # print(etree.tostring(xml_doc, pretty_print=True, xml_declaration=True, encoding='UTF-8').decode())
+
+    if validate:
+        validate_openpsa_input_xml(xml_doc)
+
     return xml_doc
 
 

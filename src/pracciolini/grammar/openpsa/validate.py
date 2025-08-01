@@ -66,6 +66,7 @@ def read_openpsa_xml(xml_file_path: str) -> lxml.etree.ElementTree:
             raise etree.XMLSyntaxError("")
     except Exception as e:
         print(f"An error occurred while reading file: {e}")
+        raise e
 
 
 def validate_openpsa_input_xml(xml_doc: etree.ElementTree) -> bool:
