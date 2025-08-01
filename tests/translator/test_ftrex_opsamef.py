@@ -16,7 +16,7 @@ class TestTranslateFtrexFtpToOpenPSAMefXml(unittest.TestCase):
         cls.fixtures_path = (cls.current_dir / '..' / 'fixtures' / 'ftrex' / 'ftp').resolve()
 
     def test_simple(self):
-        file_path = self.fixtures_path / 'ENT.FTP'
+        file_path = self.fixtures_path / 'valid' / 'fragment'/ 'import_tree.ftp'
         opsamef_xml = ftrex_ftp_to_opsamef_xml(file_path)
         self.assertTrue(opsamef_xml, f'File {file_path} should be valid.')
 

@@ -192,3 +192,4 @@ core.*
 *.h5
 *.bits
 *.cnpy
+/.idea/
